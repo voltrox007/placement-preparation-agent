@@ -893,4 +893,3 @@ Release tagged with limitations, team contributions and measured usage. Acceptan
 ## Deferred scope
 
 Sandboxed execution, PostgreSQL/multiple replicas, private GitHub authorization, MCP interoperability, Foundry IQ, voice and additional roles remain separate future proposals. Do not create these as MVP commitments. Continuous conversation requires a new explicit scope/budget decision.
-

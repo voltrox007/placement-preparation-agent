@@ -4,6 +4,8 @@ A group software project for evidence-based placement preparation, powered by a 
 
 **Status: planning and issue setup. Application implementation has not started.**
 
+Track development in the [28 assigned issues](https://github.com/voltrox007/placement-preparation-agent/issues) and [seven milestones](https://github.com/voltrox007/placement-preparation-agent/milestones). Each of the four team members owns seven issues.
+
 ## Product goal
 
 Help a student understand their target role, distinguish claimed skills from demonstrated skills, take reviewed assessments, follow a feasible study plan, and receive grounded feedback. New accepted evidence improves the next recommendation.
