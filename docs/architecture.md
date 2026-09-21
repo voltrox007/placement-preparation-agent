@@ -1,5 +1,7 @@
 # Architecture
 
+Implementation interfaces, concurrency rules, baseline review and agent execution allocation are recorded in [implementation decisions](implementation-decisions.md). Blueprint revision 1.1 remains the product scope baseline.
+
 ## Boundaries
 
 LLM: extraction drafts, grounded explanations, one-shot feedback, optional batch project questions. Deterministic application: identity, workflow, retrieval preparation, scoring keys, evidence aggregation, plan feasibility, budget checks, persistence. External adapters: Foundry, Search/embeddings, GitHub. Database: authoritative student state. RAG: approved educational passages only.
