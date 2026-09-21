@@ -1,0 +1,1 @@
+"""Placement preparation application package."""
