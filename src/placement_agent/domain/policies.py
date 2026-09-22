@@ -5,7 +5,12 @@ from collections.abc import Mapping, Sequence, Set
 from datetime import date
 from math import isclose, isfinite
 
-from placement_agent.domain.contracts import EvaluationResult, GoalSpec, InterviewBatchResult, PlanDraft
+from placement_agent.domain.contracts import (
+    EvaluationResult,
+    GoalSpec,
+    InterviewBatchResult,
+    PlanDraft,
+)
 
 
 class PolicyViolation(ValueError):
@@ -33,7 +38,11 @@ def validate_evaluation(
     if {d.dimension_id for d in result.dimensions} != expected_dimensions:
         raise PolicyViolation("Missing or unexpected rubric dimensions")
     weights = dict(dimension_weights) if dimension_weights is not None else dict.fromkeys(expected_dimensions, 1.0)
-    if set(weights) != expected_dimensions or any(not isfinite(w) or w < 0 for w in weights.values()) or sum(weights.values()) <= 0:
+    if (
+        set(weights) != expected_dimensions
+        or any(not isfinite(w) or w < 0 for w in weights.values())
+        or sum(weights.values()) <= 0
+    ):
         raise PolicyViolation("Invalid frozen rubric weights")
     expected_score = sum(d.score * weights[d.dimension_id] for d in result.dimensions) / (4 * sum(weights.values()))
     if not isclose(result.normalized_score, expected_score, abs_tol=1e-6):
@@ -44,7 +53,11 @@ def validate_evaluation(
 
 
 def validate_interview_batch(
-    result: InterviewBatchResult, *, session_id: str, input_hash: str, attempts_by_item: Mapping[str, str]
+    result: InterviewBatchResult,
+    *,
+    session_id: str,
+    input_hash: str,
+    attempts_by_item: Mapping[str, str],
 ) -> None:
     if result.session_id != session_id or result.input_hash != input_hash:
         raise PolicyViolation("Evaluation batch does not match frozen submission")
@@ -52,9 +65,7 @@ def validate_interview_batch(
         raise PolicyViolation("Missing, unexpected or mismatched interview items")
 
 
-def validate_plan(
-    plan: PlanDraft, *, goal: GoalSpec, state_version: int, eligible_activity_ids: Set[str]
-) -> None:
+def validate_plan(plan: PlanDraft, *, goal: GoalSpec, state_version: int, eligible_activity_ids: Set[str]) -> None:
     if plan.goal_id != goal.goal_id or plan.based_on_state_version != state_version:
         raise PolicyViolation("Plan is for another goal or stale student state")
     totals: dict[date, int] = defaultdict(int)

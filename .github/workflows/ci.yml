@@ -32,8 +32,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install '.[persistence]'
-      - run: python -m unittest discover -s tests/unit -v
-      - run: python -m unittest discover -s tests/integration -v
-  # The resolved lockfile, lint/type tooling and actual CI run remain P02 gates.
+      - run: python -m pip install '.[dev]'
+      - run: python -m pytest -q
+      - run: python -m ruff check src tests scripts
+      - run: python -m mypy src
   # No cloud credentials or paid model invocations are configured.

@@ -18,9 +18,10 @@ python -m compileall -q src/placement_agent/config.py
 ```
 
 On Linux/macOS prefix the test command with `PYTHONPATH=src`.
-CI runs these configuration tests on Python 3.12.14 and 3.13.5 without package
-installation, Azure credentials, or model calls. This is a foundation check,
-not yet the complete application test suite. Ruff and strict mypy configuration
+CI has a dependency-free configuration job on Python 3.12.14 and 3.13.5, plus a
+foundation job that installs the persistence extra and runs unit and database
+integration suites. Neither job needs Azure credentials or makes model calls.
+The remote jobs have not executed from this session. Ruff and strict mypy configuration
 is present in `pyproject.toml`; installing/pinning their tools and executing them
 must precede closing P02.
 
@@ -38,6 +39,12 @@ HTTPS endpoint, persistent agent name/version, and positive integer values for
 Input plus output ceilings must fit the student daily allowance, which must fit
 the project allowance. No paid default budget is invented. Invalid configuration
 raises `ConfigurationError` without including supplied values in its message.
+The interview question limit may not exceed 12, matching the bounded report contract.
+
+After dependency access is restored, `python -m pip install '.[persistence]'`
+installs the initial domain/database dependencies. This command is not a resolved
+lockfile installation. Run unit tests with `python -m unittest discover -s tests/unit -v`
+and integration tests with `python -m unittest discover -s tests/integration -v`.
 
 The budgets are token limits, not currency estimates. P06 must implement atomic
 reservations and actual usage accounting; configuration validation is not a usage

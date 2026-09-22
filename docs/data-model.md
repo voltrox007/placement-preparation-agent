@@ -63,3 +63,45 @@ StudentContext; ProfileDraft with source spans; ConfirmedProfile; GoalSpec; Evid
 Reject unknown IDs, out-of-range rubric scores, over-capacity plans, missing citations, fabricated test status, malformed batches, and stale state writes. JSON is for bounded versioned payloads, not a replacement for relational ownership and foreign keys.
 
 SQLite backup uses the supported backup API. Do not blindly copy a live database or share it across replicas. PostgreSQL is a future migration before horizontal scaling.
+
+## Current implementation boundary
+
+Migration `0001` introduces students, goals, reviewed questions, sessions/items,
+attempts, evaluations, skill evidence, evaluation batches, and usage reservations.
+This is an incremental P04 foundation, **not completion of the entire schema**.
+Profiles, role/skill catalogs and their FKs, documents/projects, learning plans,
+progress events, provider-run linkage, supersession service validation, and privacy jobs
+remain future migrations. Do not use the current minimal evaluation model as the
+complete transactional evaluation-acceptance service.
+
+`StudentRepository` scopes session/item access to a server-derived student ID.
+It supports idempotent submissions and compare-and-update state versions.
+Services own `unit_of_work` boundaries; exceptions roll back the entire unit.
+Units of work acquire `BEGIN IMMEDIATE` before ownership reads. Attempt insertion
+uses conflict-safe insertion and verifies the stored payload: identical concurrent
+submissions return one ID, while changed payloads conflict. No application path
+should write private ORM models directly. SQLite timestamps normalize to UTC on
+write and restore timezone-aware UTC on read; naive input is rejected.
+
+`BudgetRepository.reserve` owns a `BEGIN IMMEDIATE` transaction for both admission
+and insertion, checking both per-student and whole-project call/token limits for
+the period. It returns `(reservation_id, newly_reserved)`. Before dispatch the
+caller must also win `mark_dispatched`, a durable `reserved` to `dispatched` CAS;
+only a true result permits the outbound request. Reused keys with changed input
+conflict. Outstanding/dispatched/unknown requests retain their full reservation.
+Only `reserved` requests may be released; dispatched calls reconcile to completed
+or terminal unknown usage. A crash after dispatch claim conservatively consumes
+budget. Unknown usage cannot later be released or reduced by this API. All callers
+must use the same trusted period and project limits; they are not user inputs.
+Each database represents one project. Project limits aggregate all its students.
+
+Evaluations may reference a superseded evaluation while retaining both records.
+Services must still validate same-attempt ownership, reject supersession cycles,
+and atomically update derived evidence; these services remain unimplemented.
+
+Run migrations with `alembic upgrade head` after creating the configured database
+parent directory. Override the example SQLite URL to a local, non-synced data
+directory. Integration tests migrate a disposable database and cover ownership,
+foreign keys, active-goal uniqueness, rollback, idempotency, stale versions, and
+concurrent budget admission. These tests require installed SQLAlchemy and Alembic;
+syntax validation alone does not establish database correctness.

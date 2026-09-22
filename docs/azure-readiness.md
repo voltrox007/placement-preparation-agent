@@ -61,3 +61,14 @@ Ingestion writes a candidate corpus, checks every upload result, validates retri
 ## Implementation that can proceed without Azure access
 
 Typed contracts, deterministic planning/scoring, SQLite migrations, identity checks, application interfaces, fake-provider tests, credit reservations, request-count tests, chunking, citation validation, and versioned ingestion logic can proceed independently. Keep all live integrations disabled until configuration and budget checks pass. P05, live portions of P16-P18/P26, and deployment acceptance must remain explicitly incomplete until real evidence exists.
+# Verified Foundry configuration
+
+On 2026-09-22, the project owner authenticated with Azure CLI against the enabled
+`Azure for Students` subscription. A read-only SDK check verified the project endpoint.
+Agent `placement-preparation-agent` version `4` was then created from the repository's
+canonical instructions and verified as a prompt agent using deployment `gpt-4.1-mini`
+with zero tools. Agent creation and verification did not invoke the model.
+
+The owner authorized a total project credit envelope of INR 10,000, with INR 1,500
+allocated to development and integration testing and INR 200 allocated to the initial
+live smoke test. Live inference remains disabled until all offline gates pass.

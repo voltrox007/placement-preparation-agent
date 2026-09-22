@@ -60,8 +60,10 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_unsafe_or_malformed_endpoint(self) -> None:
         for endpoint in (
-            "http://example.com", "https://user:secret@example.com",
-            "https://x/?key=x", "https://[invalid",
+            "http://example.com",
+            "https://user:secret@example.com",
+            "https://x/?key=x",
+            "https://[invalid",
         ):
             env = live_environment()
             env["FOUNDRY_PROJECT_ENDPOINT"] = endpoint
@@ -70,8 +72,10 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_invalid_local_settings(self) -> None:
         for env in (
-            {"AUTH_MODE": "hosted"}, {"LOG_LEVEL": "invalid"},
-            {"DATABASE_URL": ""}, {"PRIVATE_STORAGE_DIR": " "},
+            {"AUTH_MODE": "hosted"},
+            {"LOG_LEVEL": "invalid"},
+            {"DATABASE_URL": ""},
+            {"PRIVATE_STORAGE_DIR": " "},
         ):
             with self.subTest(env=env), self.assertRaises(ConfigurationError):
                 load_settings(env)

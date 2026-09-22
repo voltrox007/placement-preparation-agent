@@ -39,6 +39,11 @@ class Settings:
     private_storage_dir: str
     auth_mode: str
     log_level: str
+    search_endpoint: str = ""
+    search_index_name: str = ""
+    embedding_deployment: str = ""
+    knowledge_corpus_version: str = ""
+    embedding_dimensions: int | None = None
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -106,6 +111,22 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     private_storage_dir = values.get("PRIVATE_STORAGE_DIR", "data/private").strip()
     if not database_url or not private_storage_dir:
         raise ConfigurationError("DATABASE_URL and PRIVATE_STORAGE_DIR must not be blank")
+    search_endpoint = values.get("AZURE_SEARCH_ENDPOINT", "").strip()
+    search_index_name = values.get("AZURE_SEARCH_INDEX_NAME", "").strip()
+    embedding_deployment = values.get("EMBEDDING_DEPLOYMENT", "").strip()
+    corpus_version = values.get("KNOWLEDGE_CORPUS_VERSION", "").strip()
+    embedding_dimensions = _positive_int(values, "EMBEDDING_DIMENSIONS")
+    search_values = (
+        search_endpoint,
+        search_index_name,
+        embedding_deployment,
+        corpus_version,
+        embedding_dimensions,
+    )
+    if any(search_values) and not all(search_values):
+        raise ConfigurationError("Azure retrieval configuration must be complete")
+    if search_endpoint and not search_endpoint.startswith("https://"):
+        raise ConfigurationError("AZURE_SEARCH_ENDPOINT must be HTTPS")
     return Settings(
         live_ai_enabled=enabled == "true",
         foundry_project_endpoint=endpoint,
@@ -121,4 +142,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         private_storage_dir=private_storage_dir,
         auth_mode=auth_mode,
         log_level=log_level,
+        search_endpoint=search_endpoint,
+        search_index_name=search_index_name,
+        embedding_deployment=embedding_deployment,
+        knowledge_corpus_version=corpus_version,
+        embedding_dimensions=embedding_dimensions,
     )

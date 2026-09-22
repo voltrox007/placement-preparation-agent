@@ -175,7 +175,10 @@ class InterviewBatchResult(Contract):
 
     @model_validator(mode="after")
     def unique_items_and_attempts(self) -> Self:
-        for values in ([e.item_id for e in self.evaluations], [e.attempt_id for e in self.evaluations]):
+        for values in (
+            [e.item_id for e in self.evaluations],
+            [e.attempt_id for e in self.evaluations],
+        ):
             if len(values) != len(set(values)):
                 raise ValueError("Duplicate interview item or attempt")
         return self
@@ -243,7 +246,9 @@ class AgentTaskResult(Contract):
     request_key: Identifier
     status: RunStatus
     provider_id: Identifier | None = None
-    output: ProfileDraft | GroundedAnswer | EvaluationResult | InterviewBatchResult | QuestionBatch | Recommendation | None = None
+    output: (
+        ProfileDraft | GroundedAnswer | EvaluationResult | InterviewBatchResult | QuestionBatch | Recommendation | None
+    ) = None
     actual_tokens: Annotated[int, Field(ge=0)] | None = None
     error_code: Identifier | None = None
 

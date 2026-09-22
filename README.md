@@ -2,7 +2,7 @@
 
 A group software project for evidence-based placement preparation, powered by a **persistent Azure Foundry agent**.
 
-**Status: planning and issue setup. Application implementation has not started.**
+**Status: foundation implementation in progress.** Configuration and domain validation are implemented locally; the student-facing app and live Azure integration are not ready. See the [implementation status](docs/implementation-status.md) for tested work and remaining gates.
 
 Track development in the [28 assigned issues](https://github.com/voltrox007/placement-preparation-agent/issues) and [seven milestones](https://github.com/voltrox007/placement-preparation-agent/milestones). Each of the four team members owns seven issues.
 
@@ -50,12 +50,15 @@ Not included: live coding assistance, conversational interviews, autonomous foll
 - [Setup and environment plan](docs/setup.md)
 - [Deployment and privacy](docs/deployment.md)
 - [Demo plan](docs/demo.md)
+- [Implementation decisions and agent roles](docs/implementation-decisions.md)
+- [Azure readiness](docs/azure-readiness.md)
+- [Implementation status and pending GitHub updates](docs/implementation-status.md)
 
 ## Development workflow
 
 Approved plan → GitHub issue → small branch/PR → relevant tests → fixes → documentation → review → merge → next issue.
 
-Issue dependencies determine order. Different members own different components, but dependent issues must wait for their prerequisites. No implementation is implied by this initial documentation commit.
+Issue dependencies determine order. Agent roles own implementation tasks and independent review; existing human GitHub assignments remain unchanged. Preparatory code for a blocked integration is recorded as incomplete until its prerequisites and acceptance checks pass.
 
 ## Important limitations
 
