@@ -602,7 +602,10 @@ class PreparationService:
                 EvaluationBatch,
             ]:
                 tables[model.__tablename__] = [
-                    _dict(row) for row in db.scalars(select(model).where(model.student_id == student_id))
+                    _dict(row)
+                    for row in db.scalars(
+                        select(model).where(model.student_id == student_id)  # type: ignore[attr-defined]
+                    )
                 ]
             session_ids = [row["id"] for row in tables["sessions"]]
             plan_ids = [row["id"] for row in tables["learning_plans"]]
