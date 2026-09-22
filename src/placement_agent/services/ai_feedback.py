@@ -61,7 +61,9 @@ def request_session_feedback(
             "status": "objective_only",
             "message": "Diagnostic answers were scored deterministically; no model call is needed.",
         }
-    return _public_result(result)
+    public = _public_result(result)
+    service.persist_session_feedback(student_id, session_id, key, public)
+    return public
 
 
 def answer_learning(

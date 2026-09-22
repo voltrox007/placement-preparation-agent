@@ -6,6 +6,9 @@ from placement_agent.services.ai_feedback import answer_learning, request_sessio
 
 
 class Service:
+    def __init__(self):
+        self.persisted = []
+
     def profile(self, student_id):
         return {"state_version": 3}
 
@@ -25,6 +28,9 @@ class Service:
                 }
             ],
         }
+
+    def persist_session_feedback(self, student_id, session_id, request_key, result):
+        self.persisted.append((student_id, session_id, request_key, result))
 
 
 class Coach:
@@ -66,11 +72,13 @@ def live_settings(monkeypatch):
 
 def test_practice_bridge_makes_one_explicit_call_with_stable_key():
     coach = Coach()
-    result = request_session_feedback("student1", "session1", service=Service(), coach=coach)
+    service = Service()
+    result = request_session_feedback("student1", "session1", service=service, coach=coach)
     assert result == {"status": "succeeded"}
     assert len(coach.calls) == 1
     assert coach.calls[0][2] == "session-feedback:session1"
     assert coach.calls[0][1].state_version == 3
+    assert len(service.persisted) == 1
 
 
 def test_learning_bridge_retrieves_then_calls_once():

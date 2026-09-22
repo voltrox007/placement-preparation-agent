@@ -13,6 +13,8 @@ def source():
         text="A primary key identifies one row.",
         permitted_use="Original test content",
         reviewed_on="2026-09-22",
+        review_status="human_reviewed",
+        reviewer="Test reviewer",
         classification="public_educational",
     )
 
@@ -73,3 +75,17 @@ def test_chunking_and_private_source_rejection():
     assert chunk_source(source(), "v1")[0]["content_hash"]
     with pytest.raises(ValueError):
         EducationalSource(**(source().model_dump() | {"classification": "private_resume"}))
+
+
+def test_draft_source_cannot_be_ingested(tmp_path):
+    draft = source().model_copy(update={"review_status": "draft", "reviewer": None})
+    with pytest.raises(ValueError, match="human review"):
+        ingest_candidate(
+            [draft],
+            corpus_version="v1",
+            search_client=Search(),
+            embedding_client=Embeddings(),
+            embedding_model="embedding1",
+            dimensions=2,
+            state_path=tmp_path / "state.json",
+        )

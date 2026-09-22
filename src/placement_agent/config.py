@@ -25,6 +25,7 @@ def _positive_int(env: Mapping[str, str], name: str) -> int | None:
 
 @dataclass(frozen=True)
 class Settings:
+    deployment_environment: str
     live_ai_enabled: bool
     foundry_project_endpoint: str
     foundry_agent_name: str
@@ -101,9 +102,14 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         assert input_limit and output_limit and student_limit and project_limit
         if input_limit + output_limit > student_limit or student_limit > project_limit:
             raise ConfigurationError("Token limits must satisfy action <= student <= project")
+    deployment_environment = values.get("DEPLOYMENT_ENVIRONMENT", "local").strip().lower()
+    if deployment_environment not in {"local", "hosted"}:
+        raise ConfigurationError("DEPLOYMENT_ENVIRONMENT must be local or hosted")
     auth_mode = values.get("AUTH_MODE", "local_demo").strip()
     if auth_mode != "local_demo":
         raise ConfigurationError("Only AUTH_MODE=local_demo is implemented; hosting is not ready")
+    if deployment_environment == "hosted":
+        raise ConfigurationError("Hosted startup is blocked until server-verified authentication is implemented")
     log_level = values.get("LOG_LEVEL", "INFO").strip().upper()
     if log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
         raise ConfigurationError("LOG_LEVEL is invalid")
@@ -128,6 +134,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     if search_endpoint and not search_endpoint.startswith("https://"):
         raise ConfigurationError("AZURE_SEARCH_ENDPOINT must be HTTPS")
     return Settings(
+        deployment_environment=deployment_environment,
         live_ai_enabled=enabled == "true",
         foundry_project_endpoint=endpoint,
         foundry_agent_name=agent_name,

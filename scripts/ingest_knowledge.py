@@ -26,9 +26,9 @@ def main() -> None:
     try:
         search = create_azure_search(
             endpoint=os.environ["AZURE_SEARCH_ENDPOINT"],
-            index_name=os.environ["AZURE_SEARCH_INDEX"],
+            index_name=os.environ["AZURE_SEARCH_INDEX_NAME"],
             embedding_client=provider.client,
-            embedding_model=os.environ["AZURE_EMBEDDING_DEPLOYMENT"],
+            embedding_model=os.environ["EMBEDDING_DEPLOYMENT"],
             corpus_version=args.corpus_version,
             dimensions=int(os.environ["EMBEDDING_DIMENSIONS"]),
         )
