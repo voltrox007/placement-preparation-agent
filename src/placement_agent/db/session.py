@@ -11,14 +11,20 @@ from .models import Base
 def create_sqlite_engine(database_url: str):
     if not database_url.startswith("sqlite:"):
         raise ValueError("This factory only supports SQLite")
-    engine = create_engine(database_url, connect_args={"timeout": 5})
+    engine = create_engine(
+        database_url,
+        connect_args={"timeout": 30, "check_same_thread": False},
+    )
 
     @event.listens_for(engine, "connect")
     def configure(dbapi_connection, _record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA busy_timeout=5000")
-        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        # WAL uses shared-memory sidecar files and is unsuitable for the
+        # network-mounted SQLite database used by the hosted showcase.
+        cursor.execute("PRAGMA journal_mode=DELETE")
+        cursor.execute("PRAGMA synchronous=FULL")
         cursor.close()
 
     return engine
