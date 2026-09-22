@@ -80,6 +80,14 @@ class ConfigurationTests(unittest.TestCase):
             with self.subTest(env=env), self.assertRaises(ConfigurationError):
                 load_settings(env)
 
+    def test_hosted_environment_fails_closed_without_verified_auth(self) -> None:
+        with self.assertRaisesRegex(ConfigurationError, "server-verified authentication"):
+            load_settings({"DEPLOYMENT_ENVIRONMENT": "hosted", "AUTH_MODE": "local_demo"})
+
+    def test_invalid_deployment_environment(self) -> None:
+        with self.assertRaisesRegex(ConfigurationError, "local or hosted"):
+            load_settings({"DEPLOYMENT_ENVIRONMENT": "public"})
+
     def test_interview_question_limit_matches_contract(self) -> None:
         for value in ("13", "1000"):
             with self.subTest(value=value), self.assertRaises(ConfigurationError):

@@ -3,7 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,7 +16,12 @@ class EducationalSource(BaseModel):
     text: str = Field(min_length=1, max_length=200000)
     permitted_use: str = Field(min_length=1)
     reviewed_on: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    review_status: Literal["draft", "human_reviewed"] = "draft"
+    reviewer: str | None = Field(default=None, min_length=2, max_length=120)
     classification: str = Field(pattern=r"^public_educational$")
+
+    def approved_for_ingestion(self) -> bool:
+        return self.review_status == "human_reviewed" and bool(self.reviewer)
 
 
 def chunk_source(source: EducationalSource, corpus_version: str) -> list[dict[str, Any]]:
@@ -68,6 +73,8 @@ def ingest_candidate(
     """Caller explicitly authorizes embedding spend; no retries or partial activation."""
     if not sources or len({s.source_id for s in sources}) != len(sources):
         raise ValueError("Sources must be nonempty with unique IDs")
+    if any(not source.approved_for_ingestion() for source in sources):
+        raise ValueError("Every source must have a named human review before ingestion")
     previous = json.loads(state_path.read_text()) if state_path.exists() else {}
     if previous.get("active_corpus") == corpus_version:
         raise ValueError("Use a new candidate version; active corpus is immutable")

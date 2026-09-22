@@ -1,0 +1,6 @@
+[
+  {"case_id": "python-set", "query": "Which Python collection keeps unique values?", "expected_citation_ids": ["fixture-v1_python-collections-original_0"]},
+  {"case_id": "sql-primary-key", "query": "What is the purpose of a primary key?", "expected_citation_ids": ["fixture-v1_sql-keys-original_0"]},
+  {"case_id": "git-staging", "query": "What is the Git staging area?", "expected_citation_ids": ["fixture-v1_git-commit-original_0"]},
+  {"case_id": "bfs-queue", "query": "Why does breadth-first search use a queue?", "expected_citation_ids": ["fixture-v1_dsa-bfs-original_0"]}
+]

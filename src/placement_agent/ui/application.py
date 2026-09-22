@@ -68,6 +68,27 @@ def profile_page(svc):
     for project in svc.projects(STUDENT):
         with st.expander(project.get("title", "Project")):
             st.json(project)
+            if st.button("Prepare reusable viva questions", key=f"viva_{project['id']}"):
+                st.session_state[f"viva_batch_{project['id']}"] = svc.prepare_project_viva(STUDENT, project["id"])
+            if f"viva_batch_{project['id']}" in st.session_state:
+                st.json(st.session_state[f"viva_batch_{project['id']}"])
+    st.subheader("Target job description")
+    with st.form("job_description"):
+        jd_text = st.text_area("Job description", max_chars=60000)
+        unresolved = st.text_input("Unmapped requirements to retain (comma separated)")
+        if st.form_submit_button("Review requirement mapping") and jd_text.strip():
+            st.session_state["jd_text"] = jd_text
+            st.session_state["jd_draft"] = svc.draft_job_requirements(jd_text)
+    if "jd_draft" in st.session_state:
+        st.json(st.session_state["jd_draft"])
+        if st.button("Confirm this requirement snapshot"):
+            svc.confirm_job_requirements(
+                STUDENT,
+                st.session_state["jd_text"],
+                st.session_state["jd_draft"],
+                [item.strip() for item in unresolved.split(",") if item.strip()],
+            )
+            st.success("Confirmed job requirements saved with their taxonomy version")
 
 
 def session_page(svc, kind):
@@ -153,7 +174,34 @@ def main():
                 svc.create_plan(STUDENT)
             plan = svc.get_plan(STUDENT)
             if plan:
-                st.dataframe(plan["items"], use_container_width=True)
+                next_action = svc.next_action(STUDENT)
+                st.json(next_action)
+                if next_action.get("action") == "complete_activity":
+                    if st.button(
+                        "Explain this recommendation once",
+                        disabled=not load_settings().live_ai_enabled,
+                    ):
+                        from placement_agent.services.ai_feedback import explain_next_action
+
+                        key = (
+                            f"plan-explanation:{next_action['plan_item_id']}:"
+                            f"{plan['state_version']}"
+                        )
+                        st.session_state["plan_explanation"] = explain_next_action(STUDENT, key)
+                    if "plan_explanation" in st.session_state:
+                        st.json(st.session_state["plan_explanation"])
+                    if not load_settings().live_ai_enabled:
+                        st.caption("Foundry plan explanations are disabled until live Azure configuration is verified.")
+                for item in plan["items"]:
+                    left, right = st.columns([4, 1])
+                    left.write(f"{item['scheduled_date']} · {item['title']} · {item['status']}")
+                    if right.button(
+                        "Complete",
+                        key=f"complete_{item['id']}",
+                        disabled=item["status"] == "completed",
+                    ):
+                        svc.complete_activity(STUDENT, item["id"])
+                        st.rerun()
             else:
                 st.info("Set a goal, complete a diagnostic, then create your plan.")
         elif page == "Learn & Practice":

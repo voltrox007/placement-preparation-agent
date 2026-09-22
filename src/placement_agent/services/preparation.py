@@ -31,6 +31,7 @@ from placement_agent.db.repositories import ConflictError, NotFoundError, Studen
 from placement_agent.db.session import unit_of_work
 
 from .catalog import INTERVIEW, ITEMS, RESOURCES, SKILLS
+from .taxonomy import map_job_description, role_snapshot
 
 
 def _dict(row):
@@ -173,7 +174,7 @@ class PreparationService:
         with self.factory() as db:
             StudentRepository(db, student_id).get_student()
             goal = db.scalar(select(Goal).where(Goal.student_id == student_id, Goal.status == "active"))
-            return _dict(goal) if goal else None
+            return {**_dict(goal), "requirements": role_snapshot(goal.role_id)} if goal else None
 
     def set_goal(self, student_id, role_id="backend", daily_minutes=45, weekly_minutes=225):
         self._capacity(daily_minutes, weekly_minutes)
@@ -202,20 +203,40 @@ class PreparationService:
 
     @staticmethod
     def _skills(db, student_id):
+        invalid = {
+            row.details.get("evaluation_id")
+            for row in db.scalars(
+                select(ProgressEvent).where(
+                    ProgressEvent.student_id == student_id,
+                    ProgressEvent.event_type == "evaluation_invalidated",
+                )
+            )
+        }
         rows = db.execute(
-            select(Question.skill_id, Question.id, Evaluation.normalized_score, Attempt.submitted_at)
+            select(
+                Question.skill_id,
+                Question.id,
+                Evaluation.id,
+                Evaluation.supersedes_id,
+                Evaluation.normalized_score,
+                Attempt.submitted_at,
+            )
             .join(SessionItem, SessionItem.question_id == Question.id)
             .join(Attempt, Attempt.item_id == SessionItem.id)
             .join(Evaluation, Evaluation.attempt_id == Attempt.id)
             .where(Attempt.student_id == student_id)
             .order_by(Attempt.submitted_at)
         ).all()
+        superseded = {row[3] for row in rows if row[3]}
         latest = {}
-        for skill, question, score, _ in rows:
-            latest[(skill, question)] = score
+        for skill, question, evaluation_id, _, score, submitted_at in rows:
+            if evaluation_id in invalid or evaluation_id in superseded:
+                continue
+            latest[(skill, question)] = (score, evaluation_id, submitted_at)
         result = []
         for skill, name in SKILLS.items():
-            scores = [score for (sid, _), score in latest.items() if sid == skill]
+            evidence = [value for (sid, _), value in latest.items() if sid == skill]
+            scores = [value[0] for value in evidence]
             score = sum(scores) / len(scores) if scores else None
             if len(scores) < 3 or score is None:
                 status = "unknown"
@@ -232,6 +253,7 @@ class PreparationService:
                     "status": status,
                     "score": score,
                     "evidence_count": len(scores),
+                    "evidence_ids": [value[1] for value in evidence],
                     "reliability": "moderate" if len(scores) >= 3 else "low",
                     "policy": "heuristic-v1; agent-authored question bank, human review pending",
                 }
@@ -253,7 +275,13 @@ class PreparationService:
             )
             if current and current.state_version == student.state_version:
                 return self._plan(db, current)
+            completed = set()
             if current:
+                completed = {
+                    item.activity_id
+                    for item in db.scalars(select(PlanItem).where(PlanItem.plan_id == current.id))
+                    if item.status == "completed"
+                }
                 current.status = "archived"
             plan = LearningPlan(student_id=student_id, state_version=student.state_version)
             db.add(plan)
@@ -290,6 +318,7 @@ class PreparationService:
                         activity_id=activity.id,
                         scheduled_date=(date.today() + timedelta(days=day)).isoformat(),
                         reason=reason,
+                        status="completed" if activity.id in completed else "planned",
                     )
                 )
                 spent += activity.duration_minutes
@@ -342,6 +371,32 @@ class PreparationService:
                     )
                 )
 
+    def next_action(self, student_id):
+        """Return a deterministic recommendation without changing state or calling AI."""
+        with self.factory() as db:
+            student = StudentRepository(db, student_id).get_student()
+            plan = db.scalar(
+                select(LearningPlan).where(LearningPlan.student_id == student_id, LearningPlan.status == "active")
+            )
+            if plan is None:
+                return {"action": "create_plan", "reason": "No active learning plan", "stale": False}
+            item = db.scalar(
+                select(PlanItem)
+                .where(PlanItem.plan_id == plan.id, PlanItem.status == "planned")
+                .order_by(PlanItem.scheduled_date, PlanItem.id)
+            )
+            if item is None:
+                return {"action": "revise_plan", "reason": "All planned activities are complete", "stale": True}
+            activity = db.get(Activity, item.activity_id)
+            return {
+                "action": "complete_activity",
+                "plan_item_id": item.id,
+                "activity_id": activity.id,
+                "title": activity.title,
+                "reason": item.reason,
+                "stale": plan.state_version != student.state_version,
+            }
+
     def start_session(self, student_id, kind="diagnostic"):
         if kind not in {"diagnostic", "practice", "interview"}:
             raise ValueError("Unsupported session kind")
@@ -389,7 +444,22 @@ class PreparationService:
             select(SessionItem).where(SessionItem.session_id == session.id).order_by(SessionItem.sequence)
         ):
             attempt = db.scalar(select(Attempt).where(Attempt.item_id == item.id).order_by(Attempt.submitted_at.desc()))
-            evaluation = db.scalar(select(Evaluation).where(Evaluation.attempt_id == attempt.id)) if attempt else None
+            evaluation = None
+            if attempt:
+                evaluations = list(db.scalars(select(Evaluation).where(Evaluation.attempt_id == attempt.id)))
+                superseded = {row.supersedes_id for row in evaluations if row.supersedes_id}
+                invalid = {
+                    row.details.get("evaluation_id")
+                    for row in db.scalars(
+                        select(ProgressEvent).where(
+                            ProgressEvent.student_id == session.student_id,
+                            ProgressEvent.event_type == "evaluation_invalidated",
+                        )
+                    )
+                }
+                evaluation = next(
+                    (row for row in reversed(evaluations) if row.id not in superseded and row.id not in invalid), None
+                )
             if evaluation:
                 scores.append(evaluation.normalized_score)
             result["items"].append(
@@ -408,6 +478,94 @@ class PreparationService:
         result["total"] = len(result["items"])
         result["score"] = sum(scores) / len(scores) if scores else None
         return result
+
+    def invalidate_evaluation(self, student_id, evaluation_id, reason):
+        if not reason.strip() or len(reason) > 1000:
+            raise ValueError("Provide a reason up to 1,000 characters")
+        with unit_of_work(self.factory) as db:
+            evaluation = db.scalar(
+                select(Evaluation).join(Attempt).where(Evaluation.id == evaluation_id, Attempt.student_id == student_id)
+            )
+            if evaluation is None:
+                raise NotFoundError("Resource unavailable")
+            duplicate = next(
+                (
+                    row
+                    for row in db.scalars(
+                        select(ProgressEvent).where(
+                            ProgressEvent.student_id == student_id,
+                            ProgressEvent.event_type == "evaluation_invalidated",
+                        )
+                    )
+                    if row.details.get("evaluation_id") == evaluation_id
+                ),
+                None,
+            )
+            if duplicate is None:
+                db.add(
+                    ProgressEvent(
+                        student_id=student_id,
+                        event_type="evaluation_invalidated",
+                        details={"evaluation_id": evaluation_id, "reason": reason.strip()},
+                    )
+                )
+                StudentRepository(db, student_id).get_student().state_version += 1
+
+    def persist_session_feedback(self, student_id, session_id, request_key, result):
+        """Atomically accept one validated AI report into evaluation history."""
+        if result.get("status") != "succeeded" or not result.get("output"):
+            return {"accepted": False, "reason": "No validated successful report"}
+        output = result["output"]
+        evaluations = output.get("evaluations") or [output]
+        with unit_of_work(self.factory) as db:
+            session = StudentRepository(db, student_id).get_session(session_id)
+            if session.status != "completed":
+                raise ConflictError("Complete the session before accepting feedback")
+            existing = db.scalar(
+                select(EvaluationBatch).where(
+                    EvaluationBatch.student_id == student_id, EvaluationBatch.request_key == request_key
+                )
+            )
+            if existing:
+                return {"accepted": existing.status == "accepted", "batch_id": existing.id}
+            snapshot = self.session_feedback_payload(student_id, session_id)
+            expected = {item["item_id"]: item for item in snapshot["items"]}
+            if {item["item_id"] for item in evaluations} != set(expected):
+                raise ValueError("Feedback does not cover the frozen session exactly")
+            batch = EvaluationBatch(
+                student_id=student_id,
+                session_id=session_id,
+                request_key=request_key,
+                input_hash=snapshot["input_hash"],
+                status="accepted",
+                final_report=output.get("report", output.get("feedback", "")),
+            )
+            db.add(batch)
+            for accepted in evaluations:
+                frozen = expected[accepted["item_id"]]
+                evaluation = Evaluation(
+                    attempt_id=frozen["attempt_id"],
+                    normalized_score=accepted["normalized_score"],
+                    feedback=accepted["feedback"],
+                    rubric_version=accepted["rubric_version"],
+                )
+                db.add(evaluation)
+                db.flush()
+                db.add(
+                    SkillEvidence(
+                        student_id=student_id,
+                        skill_id=frozen["rubric"].get("skill_id", self._item_skill(db, frozen["item_id"])),
+                        evaluation_id=evaluation.id,
+                        evidence_type="static_review" if session.kind == "practice" else "rubric",
+                    )
+                )
+            StudentRepository(db, student_id).get_student().state_version += 1
+            db.flush()
+            return {"accepted": True, "batch_id": batch.id}
+
+    @staticmethod
+    def _item_skill(db, item_id):
+        return db.scalar(select(Question.skill_id).join(SessionItem).where(SessionItem.id == item_id))
 
     def get_session(self, student_id, session_id):
         with self.factory() as db:
@@ -542,7 +700,24 @@ class PreparationService:
                     self._session(db, row)
                     for row in db.scalars(select(AssessmentSession).where(AssessmentSession.student_id == student_id))
                 ],
+                "next_action": self.next_action(student_id),
             }
+
+    def draft_job_requirements(self, text):
+        if not text.strip() or len(text) > 100000:
+            raise ValueError("Provide a job description up to 100,000 characters")
+        return map_job_description(text)
+
+    def confirm_job_requirements(self, student_id, text, draft, unresolved_requirements=None):
+        expected = map_job_description(text)
+        if draft.get("mapped_requirements") != expected["mapped_requirements"]:
+            raise ConflictError("Job-description draft no longer matches the source text")
+        facts = {
+            **expected,
+            "confirmed": True,
+            "unresolved_requirements": sorted(set(unresolved_requirements or [])),
+        }
+        return self.save_document(student_id, "job_description", text, facts)
 
     def save_document(self, student_id, kind, text, confirmed_facts=None):
         if kind not in {"resume", "job_description"} or not text.strip() or len(text) > 100000:
@@ -581,6 +756,62 @@ class PreparationService:
         with self.factory() as db:
             StudentRepository(db, student_id).get_student()
             return [_dict(row) for row in db.scalars(select(Project).where(Project.student_id == student_id))]
+
+    def prepare_project_viva(self, student_id, project_id):
+        """Freeze a reusable zero-call question batch tied to the saved project snapshot."""
+        with unit_of_work(self.factory) as db:
+            project = db.scalar(select(Project).where(Project.id == project_id, Project.student_id == student_id))
+            if project is None:
+                raise NotFoundError("Resource unavailable")
+            evidence = dict(project.evidence or {})
+            source_evidence = {key: value for key, value in evidence.items() if key != "viva_batch"}
+            source_hash = sha256(
+                json.dumps(
+                    {
+                        "title": project.title,
+                        "description": project.description,
+                        "evidence": source_evidence,
+                    },
+                    sort_keys=True,
+                    default=str,
+                ).encode()
+            ).hexdigest()
+            batch = evidence.get("viva_batch")
+            if batch and batch.get("source_hash") == source_hash:
+                return batch
+            questions = [
+                {
+                    "id": f"{project.id}:viva:{index}",
+                    "prompt": prompt.format(title=project.title),
+                    "evidence_refs": [project.id],
+                    "rubric": ["technical_accuracy", "reasoning", "clarity"],
+                }
+                for index, prompt in enumerate(
+                    (
+                        "Describe your contribution to {title}; separate your work from the team's work.",
+                        "Explain one technical decision in {title} and the evidence that supported it.",
+                        "Describe a limitation or failure mode in {title} and how you would verify a fix.",
+                    ),
+                    1,
+                )
+            ]
+            batch = {
+                "version": "project-viva-template-v1",
+                "source_hash": source_hash,
+                "project_id": project.id,
+                "questions": questions,
+                "generation": "deterministic_template",
+            }
+            evidence["viva_batch"] = batch
+            project.evidence = evidence
+            db.add(
+                ProgressEvent(
+                    student_id=student_id,
+                    event_type="project_viva_prepared",
+                    details={"project_id": project.id, "source_hash": source_hash},
+                )
+            )
+            return batch
 
     def export_student(self, student_id):
         with self.factory() as db:

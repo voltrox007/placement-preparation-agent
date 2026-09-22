@@ -2,10 +2,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from placement_agent.services.ai_feedback import answer_learning, request_session_feedback
+from placement_agent.services.ai_feedback import answer_learning, explain_next_action, request_session_feedback
 
 
 class Service:
+    def __init__(self):
+        self.persisted = []
+
     def profile(self, student_id):
         return {"state_version": 3}
 
@@ -26,6 +29,18 @@ class Service:
             ],
         }
 
+    def next_action(self, student_id):
+        return {
+            "action": "complete_activity",
+            "plan_item_id": "item42",
+            "activity_id": "activity7",
+            "title": "Practice joins",
+            "reason": "Lowest assessed skill",
+        }
+
+    def persist_session_feedback(self, student_id, session_id, request_key, result):
+        self.persisted.append((student_id, session_id, request_key, result))
+
 
 class Coach:
     def __init__(self):
@@ -37,6 +52,10 @@ class Coach:
 
     def answer(self, context, request_key, query, passages):
         self.calls.append(("answer", context, request_key, query, passages))
+        return SimpleNamespace(model_dump=lambda **_: {"status": "succeeded"})
+
+    def explain_plan(self, context, request_key, payload):
+        self.calls.append(("explain", context, request_key, payload))
         return SimpleNamespace(model_dump=lambda **_: {"status": "succeeded"})
 
 
@@ -66,11 +85,13 @@ def live_settings(monkeypatch):
 
 def test_practice_bridge_makes_one_explicit_call_with_stable_key():
     coach = Coach()
-    result = request_session_feedback("student1", "session1", service=Service(), coach=coach)
+    service = Service()
+    result = request_session_feedback("student1", "session1", service=service, coach=coach)
     assert result == {"status": "succeeded"}
     assert len(coach.calls) == 1
     assert coach.calls[0][2] == "session-feedback:session1"
     assert coach.calls[0][1].state_version == 3
+    assert len(service.persisted) == 1
 
 
 def test_learning_bridge_retrieves_then_calls_once():
@@ -96,3 +117,12 @@ def test_partial_retrieval_configuration_is_rejected(monkeypatch):
     monkeypatch.setenv("AZURE_SEARCH_ENDPOINT", "https://search.example")
     with pytest.raises(ValueError, match="configuration must be complete"):
         answer_learning("student1", "What is a key?", "request1", service=Service(), coach=Coach())
+
+
+def test_plan_explanation_calls_foundry_once_for_selected_activity():
+    coach = Coach()
+    result = explain_next_action("student1", "plan:item42:3", service=Service(), coach=coach)
+    assert result == {"status": "succeeded"}
+    assert [call[0] for call in coach.calls] == ["explain"]
+    assert coach.calls[0][3]["activity_id"] == "activity7"
+    assert coach.calls[0][3]["state_version"] == 3

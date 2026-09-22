@@ -1,39 +1,54 @@
-# Deployment, security, privacy, and costs
+# Deployment, security, privacy, and cost controls
 
-## Deployment progression
+## Supported release boundary
 
-Develop locally with SQLite and live Azure services only for explicit tests. Hosted MVP: one Linux VM/application instance, SQLite on persistent local storage, HTTPS, verified authentication, managed identity, encrypted backups. Future multi-instance hosting requires PostgreSQL first. No shared-network SQLite or ephemeral database image layer.
+The current release is a single-user demonstration application. It can run directly or in one container with SQLite on persistent storage. `compose.yaml` binds the service to `127.0.0.1`; it is not exposed to another machine. The application deliberately refuses to start when `DEPLOYMENT_ENVIRONMENT=hosted`, because server-verified user authentication has not been implemented. Do not disable this check or expose local-demo mode publicly.
+
+This boundary is intentional. A public or multi-user release needs Microsoft Entra ID authentication, a server-side mapping from the verified subject to `Student.auth_subject`, authorization tests at the HTTP boundary, HTTPS, and CSRF/session controls. After authentication exists, multi-instance hosting also requires PostgreSQL and object storage rather than shared-network SQLite.
+
+## Local container release
+
+Build and run the reproducible image without live Azure calls:
+
+```powershell
+docker compose build
+docker compose up -d
+docker compose ps
+```
+
+Open `http://127.0.0.1:8501`. Docker checks `/_stcore/health` every 30 seconds. Inspect with `docker inspect --format '{{json .State.Health}}' placement-preparation-agent-app-1` and stop with `docker compose down`. The named `placement-data` volume preserves SQLite data across container replacement. `docker compose down -v` permanently removes it and is only appropriate after a verified backup.
+
+For local live-AI validation, pass an environment file containing only non-secret settings and authenticate with a developer identity outside the image. Never copy Azure credentials into the image or repository. Production should use managed identity. The container runs as unprivileged user `10001` and excludes local databases, logs, backups, and `.env` files from its build context.
+
+## Azure readiness gate
+
+The image is suitable for a private smoke test on one host. It is **not approved for public Azure Container Apps ingress** while hosted authentication is unavailable. A future deployment should use:
 
 ```mermaid
 flowchart TB
-  Browser[Browser] --> Auth[HTTPS and authentication boundary]
-  Auth --> App[Single Streamlit app]
-  App --> DB[(SQLite: persistent local disk)]
-  App --> Budget[Application usage gate]
-  Budget --> Agent[Foundry agent]
+  Browser -->|HTTPS| Auth[Entra authenticated ingress]
+  Auth --> App[One application replica]
+  App --> Disk[(Persistent database volume)]
+  App --> Budget[Atomic usage gate]
+  Budget --> Agent[Foundry agent, managed identity]
   App --> Search[Azure AI Search]
-  App --> GitHub[GitHub REST]
-  DB --> Backup[Encrypted backups]
+  Disk --> Backup[Encrypted backup storage]
 ```
 
-Resources: Foundry project/agent, chat/embedding deployments, Search, application compute/identity, optional Blob backup and Application Insights. Verify current regional compatibility and prices before provisioning. Search/hosting may cost money when there are no chat turns.
+Required release checks are: authenticated subject derived server-side; one application replica; persistent storage mounted at `/app/data/private`; Foundry/Search roles granted to managed identity only; agent and corpus versions pinned; health probe configured; live call limits configured; encrypted backups tested; no secrets in image or environment export; and teardown commands reviewed. Verify current region support and price before provisioning any paid resource.
 
-## Security
+## Privacy and retention
 
-Derive student identity server-side. Enforce ownership at every repository/service boundary; unverified headers and browser IDs are not authorization. Treat documents/repo text as untrusted data. Bound uploads and API files, validate GitHub URLs, prevent arbitrary network targets, never execute user/repository code, and keep answer keys out of tutoring retrieval.
+The app stores profiles, resume/job-description text, public repository snapshots, answers, evaluations, plans, events, and usage reservations in SQLite. Export and deletion are explicit student actions. Local deletion removes that student's application rows; it does not claim to remove Azure provider telemetry or historical backups. Document provider retention separately before a public launch.
 
-Redact secrets and private content from logs. Cache private results by student and immutable input/version. Validate generated evidence/citation IDs. Give Azure identities only required permissions. Local demo identity must not be enabled on a public deployment.
+For a showcase, use synthetic student data and approved public repositories. Keep backups only for the showcase/recovery window, encrypt them at rest, restrict their readers, and expire old backups on a documented schedule. A restored backup may contain a student deleted after it was created; reapply deletion records before reopening access in a real hosted system.
 
-## Retention and deletion
+## Cost controls
 
-Proposed defaults: delete raw resumes after confirmed extraction unless retention is requested; retain necessary confirmed evidence while account is active; expire optional inactive conversation context after 30 days; keep operational logs bounded and redacted. Final policy is implemented and documented in P25.
+Azure budget alerts monitor spend but do not stop requests. The application additionally reserves per-action, per-student, and project usage before dispatch, performs no automatic model retry, and uses one-shot feedback. Search and hosting may incur costs even with no model responses; remove unused paid resources after the showcase.
 
-Export/delete requires an explicit authorized action. Track local files/database rows, remote conversations, caches, and backup-retention implications separately. Failed cloud deletion stays visible/retryable. Restore procedures reapply deletion records before reopening access. Do not claim all remote data vanished just because local rows were deleted.
+## Rollback and teardown
 
-## Budget controls
+Before replacing an image, create and verify a database backup. Keep the last known-good image tag and schema-compatible backup. Roll back by stopping the app, restoring the backup as described in [recovery.md](recovery.md), starting the previous image, and checking the health endpoint plus a read-only student view.
 
-Configure project and per-student limits before enabling live calls; reserve usage atomically; bound input/output, questions, and answers; disable automatic model retries; reuse valid feedback; hash-cache embeddings; reuse repository snapshots. Usage estimates must state rate/version assumptions and reconcile with provider usage when available. Billing alerts are monitoring, not a guaranteed hard stop.
-
-## Release checks
-
-Authentication cannot be bypassed; restart preserves state; no secrets in image/repository; pinned agent/corpus versions; one host only; backup/restore verified; compatible rollback documented; resource teardown documented. Do not claim production-scale availability for a single-VM demo.
+Teardown order: disable live AI, take the final export/backup, stop compute, confirm retention requirements, remove Search/Foundry/compute resources that are no longer needed, and finally remove local persistent storage. Never remove the only verified backup during teardown.

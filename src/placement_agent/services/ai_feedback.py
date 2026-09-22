@@ -61,7 +61,9 @@ def request_session_feedback(
             "status": "objective_only",
             "message": "Diagnostic answers were scored deterministically; no model call is needed.",
         }
-    return _public_result(result)
+    public = _public_result(result)
+    service.persist_session_feedback(student_id, session_id, key, public)
+    return public
 
 
 def answer_learning(
@@ -109,3 +111,31 @@ def answer_learning(
     context = StudentContext(student_id=student_id, state_version=profile["state_version"])
     result = coach.answer(context, request_key, query.strip(), passages)
     return _public_result(result)
+
+
+def explain_next_action(
+    student_id: str, request_key: str, *, service=None, coach=None
+) -> dict[str, Any]:
+    """Explain the deterministic next activity with at most one Foundry request."""
+    settings, service, coach = _dependencies(service, coach)
+    if not settings.live_ai_enabled:
+        raise ValueError("Live Foundry feedback is disabled")
+    profile = service.profile(student_id)
+    selected = service.next_action(student_id)
+    if selected.get("action") != "complete_activity":
+        return {
+            "status": "deterministic_only",
+            "message": selected.get("reason", "No planned activity is currently available."),
+            "next_action": selected,
+        }
+    item_id = str(selected["plan_item_id"])
+    activity_id = str(selected["activity_id"])
+    context = StudentContext(student_id=student_id, state_version=profile["state_version"])
+    payload = {
+        "activity_id": activity_id,
+        "state_version": profile["state_version"],
+        "evidence_ids": [item_id],
+        "title": selected.get("title", "Next learning activity"),
+        "reason": selected.get("reason", "Selected by the deterministic planner"),
+    }
+    return _public_result(coach.explain_plan(context, request_key, payload))

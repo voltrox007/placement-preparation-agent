@@ -18,3 +18,9 @@ Use only a synthetic student and approved public repository.
 Expose sanitized agent name/version, usage counts, citations, rubric versions, evidence provenance, before/after state, and reason for changed recommendation. Do not show secrets or private reasoning.
 
 The final acceptance demo includes a real persistent Foundry agent response and real retrieval. Offline fixtures or recorded replay are allowed for outages only when clearly labeled; they are not proof of live integration.
+
+## Presenter checklist
+
+Before the session, create a fresh synthetic learner, confirm the agent and corpus versions, run the automated suite, create a database backup, verify the Streamlit health endpoint, and confirm remaining Azure budget. Keep `LIVE_AI_ENABLED=false` during setup and enable it only for the planned one-shot calls. Prepare a clearly labeled offline replay for network failure.
+
+After the session, disable live AI, export the synthetic learner if the result is needed, delete demonstration data, stop compute that is no longer required, and check Azure Cost Management. Record any live call count and token discrepancy before another run.

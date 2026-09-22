@@ -1,0 +1,15 @@
+{
+  "catalog_version": "starter-v1",
+  "catalog_review_status": "awaiting_human_review",
+  "catalog_counts": {
+    "skills": 4,
+    "objective_questions": 40,
+    "interview_questions": 5,
+    "resource_links": 4
+  },
+  "knowledge_sources": 4,
+  "approved_knowledge_sources": 0,
+  "candidate_chunks": 4,
+  "network_calls": 0,
+  "model_calls": 0
+}

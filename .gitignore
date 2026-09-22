@@ -17,6 +17,7 @@ data/private/
 uploads/
 logs/
 backups/
+work/
 .coverage
 htmlcov/
 dist/

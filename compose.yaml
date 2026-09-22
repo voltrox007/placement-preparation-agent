@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      DEPLOYMENT_ENVIRONMENT: local
+      AUTH_MODE: local_demo
+      LIVE_AI_ENABLED: "false"
+    volumes:
+      - placement-data:/app/data/private
+    restart: unless-stopped
+
+volumes:
+  placement-data:
