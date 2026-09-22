@@ -125,13 +125,16 @@ class PreparationService:
                     )
                 )
 
-    def ensure_student(self, student_id="demo-student"):
+    def ensure_student(self, student_id="demo-student", display_name: str | None = None):
         if not student_id or len(student_id) > 200:
             raise ValueError("Invalid student identifier")
+        resolved_name = display_name or ("Demo Student" if student_id == "demo-student" else "Student")
+        if len(resolved_name) > 200:
+            raise ValueError("Invalid display name")
         with unit_of_work(self.factory) as db:
             student = db.get(Student, student_id)
             if student is None:
-                student = Student(id=student_id, auth_subject=student_id, display_name="Demo Student")
+                student = Student(id=student_id, auth_subject=student_id, display_name=resolved_name)
                 db.add(student)
                 db.flush()
                 db.add(Profile(student_id=student_id, education="", preferences={}))

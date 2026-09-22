@@ -38,6 +38,14 @@ def current_student_id() -> str:
     return "entra-" + sha256(subject.encode()).hexdigest()[:32]
 
 
+def current_display_name() -> str:
+    """Use the trusted Entra principal name for first-time hosted onboarding."""
+    settings = load_settings()
+    if settings.auth_mode == "local_demo":
+        return "Demo Student"
+    return st.context.headers.get("X-MS-CLIENT-PRINCIPAL-NAME", "").strip()[:200] or "Student"
+
+
 def profile_page(svc, student_id):
     st.header("Profile & Goal")
     profile = svc.profile(student_id)
@@ -160,19 +168,25 @@ def main():
     st.set_page_config(page_title="Placement Preparation Agent", page_icon="🎓", layout="wide")
     st.title("Placement Preparation Agent")
     try:
+        settings = load_settings()
         student_id = current_student_id()
-        if load_settings().auth_mode == "local_demo":
+        if settings.auth_mode == "local_demo":
             st.sidebar.warning("Local demo · single synthetic student")
         else:
             st.sidebar.success("Signed in with Microsoft Entra ID")
         svc = service()
         if not st.session_state.get("initialized"):
-            if st.button("Initialize / open local demo"):
-                svc.ensure_student(student_id)
+            if settings.auth_mode == "local_demo":
+                if st.button("Initialize / open local demo"):
+                    svc.ensure_student(student_id)
+                    st.session_state["initialized"] = True
+                    st.rerun()
+                st.info("Open the local demo to use your saved preparation profile.")
+                return
+            else:
+                svc.ensure_student(student_id, current_display_name())
                 st.session_state["initialized"] = True
                 st.rerun()
-            st.info("Open the local demo to use your saved preparation profile.")
-            return
         page = st.sidebar.radio("Navigate", PAGES)
         if page == "Home":
             st.header("Your preparation")
@@ -248,7 +262,12 @@ def main():
                 json.dumps(svc.export_student(student_id), indent=2, default=str),
                 "preparation-export.json",
             )
-            confirmation = st.text_input("Type DELETE to delete the local demo student's data")
+            label = (
+                "Type DELETE to delete the local demo student's data"
+                if settings.auth_mode == "local_demo"
+                else "Type DELETE to delete your placement-preparation data"
+            )
+            confirmation = st.text_input(label)
             if st.button("Delete my data", disabled=confirmation != "DELETE"):
                 svc.delete_student(student_id)
                 st.session_state.clear()
