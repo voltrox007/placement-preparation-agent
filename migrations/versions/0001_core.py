@@ -2,8 +2,8 @@
 
 This is intentionally a fixed schema snapshot, independent of future ORM models.
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0001"
 down_revision = None
@@ -68,7 +68,10 @@ def upgrade():
         sa.Column("actual_tokens", sa.Integer(), nullable=True), string("status"),
         sa.UniqueConstraint("student_id", "request_key"),
         sa.CheckConstraint("reserved_tokens >= 0 AND actual_tokens >= 0"),
-        sa.CheckConstraint("(status = 'completed' AND actual_tokens IS NOT NULL) OR (status != 'completed' AND actual_tokens IS NULL)"),
+        sa.CheckConstraint(
+            "(status = 'completed' AND actual_tokens IS NOT NULL) "
+            "OR (status != 'completed' AND actual_tokens IS NULL)"
+        ),
         sa.CheckConstraint("status IN ('reserved', 'dispatched', 'unknown', 'completed', 'released')"))
     for table in ("goals", "sessions", "attempts", "skill_evidence", "evaluation_batches"):
         op.create_index(f"ix_{table}_student_id", table, ["student_id"])

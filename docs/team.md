@@ -27,3 +27,5 @@ Issue count is exactly equal; effort will vary. Rebalance with team agreement if
 Assign one primary owner per issue, plus a different reviewer where team size permits. Distribute actual issues across confirmed members based on preferences and workload. Dependencies still control when work starts; assignments do not authorize parallel changes to shared contracts without coordination.
 
 Collaborators have write access; no admin access is needed for ordinary development. P01 remains the team baseline review; initial repository setup does not automatically close implementation issues.
+
+The `starter-v1` knowledge content used by the v0.1.0 release was reviewed and approved by **@Jiya-garg08** on 2026-09-22 before ingestion and live retrieval validation.
