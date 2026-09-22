@@ -51,7 +51,7 @@ def restore_snapshot(database_path: str, snapshot_path: str) -> None:
     database, snapshot = Path(database_path), Path(snapshot_path)
     database.parent.mkdir(parents=True, exist_ok=True)
     if not database.exists() and snapshot.is_file():
-        shutil.copy2(snapshot, database)
+        shutil.copyfile(snapshot, database)
 
 
 def write_snapshot(factory) -> None:
@@ -63,7 +63,7 @@ def write_snapshot(factory) -> None:
     source, destination = Path(database_value), Path(snapshot_value)
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(f".{destination.name}.{uuid4().hex}.tmp")
-    shutil.copy2(source, temporary)
+    shutil.copyfile(source, temporary)
     os.replace(temporary, destination)
 
 
