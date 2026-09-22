@@ -67,7 +67,7 @@ class PreparationService:
                                     "options": options,
                                     "correct": correct,
                                     "explanation": explanation,
-                                    "review_status": "agent_authored_needs_human_review",
+                                    "review_status": "human_reviewed_2026-09-22_Jiya-garg08",
                                     "subtopic": str(index // 2),
                                     "version": "1",
                                 },
@@ -103,7 +103,7 @@ class PreparationService:
                                 "kind": "open",
                                 "dimensions": ["technical_accuracy", "reasoning", "clarity"],
                                 "scale": "0–4 per dimension",
-                                "review_status": "agent_authored_needs_human_review",
+                                "review_status": "human_reviewed_2026-09-22_Jiya-garg08",
                             },
                         )
                     )
@@ -255,7 +255,7 @@ class PreparationService:
                     "evidence_count": len(scores),
                     "evidence_ids": [value[1] for value in evidence],
                     "reliability": "moderate" if len(scores) >= 3 else "low",
-                    "policy": "heuristic-v1; agent-authored question bank, human review pending",
+                    "policy": "heuristic-v1; content reviewed by Jiya-garg08 on 2026-09-22",
                 }
             )
         return result

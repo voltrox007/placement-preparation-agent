@@ -1,8 +1,8 @@
 {
   "catalog_version": "starter-v1",
-  "review_status": "awaiting_human_review",
-  "reviewer": null,
-  "reviewed_on": null,
+  "review_status": "human_reviewed",
+  "reviewer": "Jiya-garg08",
+  "reviewed_on": "2026-09-22",
   "authorship": "agent-authored starter content",
   "scope": {
     "skills": 4,
@@ -10,5 +10,5 @@
     "interview_questions": 5,
     "resource_links": 4
   },
-  "release_rule": "Do not describe this catalog as reviewed until a named subject reviewer records a date."
+  "release_rule": "Human review recorded; rerun validation after every catalog change."
 }
