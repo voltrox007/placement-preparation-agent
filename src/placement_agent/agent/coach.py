@@ -92,6 +92,12 @@ class AICoach:
     def question_batch(self, context: StudentContext, request_key: str, project: dict[str, Any]) -> AgentTaskResult:
         return self._run(context, request_key, Action.PROJECT_QUESTIONS, project)
 
+    def explain_plan(
+        self, context: StudentContext, request_key: str, recommendation: dict[str, Any]
+    ) -> AgentTaskResult:
+        """Explain one already-selected deterministic activity in one model call."""
+        return self._run(context, request_key, Action.PLAN_EXPLANATION, recommendation)
+
     def _validate(self, output: Any, payload: dict[str, Any], action: Action) -> None:
         if action == Action.LEARNING_ANSWER:
             validate_citations(output.citation_ids, {p["citation_id"] for p in payload["passages"]})
@@ -127,6 +133,13 @@ class AICoach:
                     raise ValueError("Question has unsupported project evidence")
                 if question.skill_id not in skills:
                     raise ValueError("Question has unknown skill")
+        elif action == Action.PLAN_EXPLANATION:
+            if output.activity_id != payload["activity_id"]:
+                raise ValueError("Recommendation changed the selected activity")
+            if output.based_on_state_version != payload["state_version"]:
+                raise ValueError("Recommendation uses the wrong student state")
+            if not set(output.evidence_ids) <= set(payload["evidence_ids"]):
+                raise ValueError("Recommendation contains unsupported evidence")
 
     def _validate_review(self, output: EvaluationResult, payload: dict[str, Any]) -> None:
         rubric = payload["rubric"]

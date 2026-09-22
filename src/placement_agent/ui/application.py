@@ -174,7 +174,24 @@ def main():
                 svc.create_plan(STUDENT)
             plan = svc.get_plan(STUDENT)
             if plan:
-                st.json(svc.next_action(STUDENT))
+                next_action = svc.next_action(STUDENT)
+                st.json(next_action)
+                if next_action.get("action") == "complete_activity":
+                    if st.button(
+                        "Explain this recommendation once",
+                        disabled=not load_settings().live_ai_enabled,
+                    ):
+                        from placement_agent.services.ai_feedback import explain_next_action
+
+                        key = (
+                            f"plan-explanation:{next_action['plan_item_id']}:"
+                            f"{plan['state_version']}"
+                        )
+                        st.session_state["plan_explanation"] = explain_next_action(STUDENT, key)
+                    if "plan_explanation" in st.session_state:
+                        st.json(st.session_state["plan_explanation"])
+                    if not load_settings().live_ai_enabled:
+                        st.caption("Foundry plan explanations are disabled until live Azure configuration is verified.")
                 for item in plan["items"]:
                     left, right = st.columns([4, 1])
                     left.write(f"{item['scheduled_date']} · {item['title']} · {item['status']}")
