@@ -44,6 +44,7 @@ def profile_page(svc):
     st.subheader("Resume evidence")
     upload = st.file_uploader("Text-based resume (PDF or TXT)", type=["pdf", "txt"])
     if st.button("Extract uploaded text", disabled=upload is None):
+        assert upload is not None
         st.session_state["resume_text"] = extract_document(upload.name, upload.getvalue())
     with st.form("resume"):
         text = st.text_area("Resume text", key="resume_text", height=180, max_chars=60000)

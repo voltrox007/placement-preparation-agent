@@ -3,7 +3,7 @@
 import hashlib
 import json
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -228,7 +228,7 @@ class AICoach:
                 request_key=request_key,
                 status=RunStatus.SUCCEEDED,
                 provider_id=reply.provider_id,
-                output=output,
+                output=cast(Any, output),
                 actual_tokens=actual,
             )
         except Exception:

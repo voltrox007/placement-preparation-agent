@@ -217,15 +217,14 @@ class PreparationService:
         for skill, name in SKILLS.items():
             scores = [score for (sid, _), score in latest.items() if sid == skill]
             score = sum(scores) / len(scores) if scores else None
-            status = (
-                "unknown"
-                if len(scores) < 3
-                else "strong"
-                if score >= 0.8
-                else "working"
-                if score >= 0.6
-                else "developing"
-            )
+            if len(scores) < 3 or score is None:
+                status = "unknown"
+            elif score >= 0.8:
+                status = "strong"
+            elif score >= 0.6:
+                status = "working"
+            else:
+                status = "developing"
             result.append(
                 {
                     "skill_id": skill,
@@ -587,8 +586,8 @@ class PreparationService:
         with self.factory() as db:
             StudentRepository(db, student_id).get_student()
             tables = {}
+            tables[Student.__tablename__] = [_dict(db.get(Student, student_id))]
             for model in [
-                Student,
                 Profile,
                 Goal,
                 SkillEvidence,
@@ -602,9 +601,8 @@ class PreparationService:
                 UsageReservation,
                 EvaluationBatch,
             ]:
-                field = model.id if model is Student else model.student_id
                 tables[model.__tablename__] = [
-                    _dict(row) for row in db.scalars(select(model).where(field == student_id))
+                    _dict(row) for row in db.scalars(select(model).where(model.student_id == student_id))
                 ]
             session_ids = [row["id"] for row in tables["sessions"]]
             plan_ids = [row["id"] for row in tables["learning_plans"]]

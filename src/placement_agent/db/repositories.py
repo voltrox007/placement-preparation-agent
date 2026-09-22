@@ -2,6 +2,7 @@
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -97,7 +98,7 @@ class StudentRepository:
             .where(Student.id == self.student_id, Student.state_version == expected_version)
             .values(state_version=Student.state_version + 1)
         )
-        if result.rowcount != 1:
+        if not isinstance(result, CursorResult) or result.rowcount != 1:
             raise ConflictError("Student state changed or is unavailable")
         return expected_version + 1
 
