@@ -2,7 +2,7 @@
 
 A group software project for evidence-based placement preparation, powered by a **persistent Azure Foundry agent**.
 
-**Status: foundation implementation in progress.** Configuration and domain validation are implemented locally; the student-facing app and live Azure integration are not ready. See the [implementation status](docs/implementation-status.md) for tested work and remaining gates.
+**Status: MVP release deployed and validated.** The authenticated single-host demo runs on Azure Container Apps with persistent Azure Files storage, managed identity, Azure AI Search, and the pinned Foundry agent. See the [deployment guide](docs/deployment.md), [demo guide](docs/demo.md), and [v0.1.0 release notes](docs/release-notes-v0.1.0.md).
 
 Track development in the [28 assigned issues](https://github.com/voltrox007/placement-preparation-agent/issues) and [seven milestones](https://github.com/voltrox007/placement-preparation-agent/milestones). Each of the four team members owns seven issues.
 
@@ -24,7 +24,7 @@ Azure Foundry Agent Service is mandatory, but continuous AI conversation is not 
 
 Credit usage cannot be guaranteed solely by limiting conversation turns: input/output tokens, embeddings, Search, and hosting also have costs. We will measure and cap usage.
 
-## Planned stack
+## Implemented stack
 
 Python · Streamlit · Azure Foundry Agent Service · Azure AI Search · SQLAlchemy/Alembic · SQLite · Pydantic · GitHub REST API.
 
@@ -67,3 +67,7 @@ Skill levels are transparent product heuristics, not employment predictions. Res
 ## Privacy
 
 This is a public repository. Use synthetic examples only. Never commit real resumes, student answers, credentials, database files, or private repository content.
+
+## Hosted demo
+
+The release endpoint is [placement-prep-agent-prod](https://placement-prep-agent-prod.proudtree-dd527a5a.uaenorth.azurecontainerapps.io/). Access requires a Microsoft Entra account in the project tenant. Anonymous requests redirect to Microsoft sign-in before reaching Streamlit.

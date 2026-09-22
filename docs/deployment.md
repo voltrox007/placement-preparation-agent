@@ -6,6 +6,23 @@ The release supports a local single-user mode and a hosted single-replica mode. 
 
 The supported hosted demo uses Microsoft Entra authentication at Azure ingress, HTTPS, one application replica, and a persistent Azure Files mount for SQLite. Multi-instance hosting requires PostgreSQL and object storage rather than shared-network SQLite.
 
+## Deployed v0.1.0 resources
+
+The verified showcase deployment uses:
+
+- Container app: `placement-prep-agent-prod`
+- URL: `https://placement-prep-agent-prod.proudtree-dd527a5a.uaenorth.azurecontainerapps.io/`
+- Environment: `placement-prep-standard-7495`, workload-profiles Consumption
+- Scale: zero minimum, one maximum replica, single revision mode
+- Persistent share: `placementdata7495/placementdata`, mounted at `/app/data/private`
+- Image: `caa940191ac5acr.azurecr.io/placement-preparation-agent:latest`
+- Search: `placementprepsearch7495`, index `placement-knowledge-v1`, corpus `starter-v1`
+- Foundry project: `vidhi2915beai24-9925`, agent `placement-preparation-agent:4`
+
+The container app pulls from ACR with its system-assigned managed identity. Its runtime identity has `AcrPull`, `Search Index Data Reader`, `Cognitive Services OpenAI User`, and project-scoped `Foundry User`. Entra Easy Auth is tenant-only, requires HTTPS, and redirects anonymous clients to Microsoft sign-in.
+
+Live limits are `6000` input tokens, `1000` output tokens, `15000` student tokens/day, `50000` project tokens/day, five interview questions, and 12000 answer characters. Application code performs no automatic chat-model retry.
+
 ## Local container release
 
 Build and run the reproducible image without live Azure calls:
@@ -46,6 +63,19 @@ For a showcase, use synthetic student data and approved public repositories. Kee
 ## Cost controls
 
 Azure budget alerts monitor spend but do not stop requests. The application additionally reserves per-action, per-student, and project usage before dispatch, performs no automatic model retry, and uses one-shot feedback. Search and hosting may incur costs even with no model responses; remove unused paid resources after the showcase.
+
+The project budget is INR 10,000, with an INR 1,500 development/test operating cap. Search uses the Free tier; Container Apps scales to zero; the Azure Files share is capped at 1 GiB; ACR uses Basic; and Foundry/model usage is pay-per-use. Review Azure Cost Management before and after each showcase.
+
+## Verified release checks
+
+- Anonymous HTTPS request returned `302` to the tenant's Microsoft login endpoint.
+- The app accepted the authenticated principal only from Easy Auth headers.
+- A marker written under `/app/data/private` remained after the container replica restarted.
+- The active deployment is healthy, single-revision, and limited to one replica.
+- Managed identity read pinned agent `placement-preparation-agent:4` and model `gpt-4.1-mini`.
+- One bounded Foundry request completed with 280 total tokens, no tools, and no retries.
+- Hosted retrieval completed one embedding request and one Search request and returned approved `starter-v1` citations.
+- No credential is stored in the image or repository.
 
 ## Rollback and teardown
 
