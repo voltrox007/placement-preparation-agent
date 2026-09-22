@@ -1,6 +1,6 @@
 # Quality and credit evaluation
 
-The repository contains deterministic quality instrumentation and small development fixtures. It does not claim a completed human evaluation or a live Azure AI Search benchmark.
+The repository contains deterministic quality instrumentation, small development fixtures, and a bounded live Azure integration smoke. The live smoke passed on 2026-09-22 against Foundry agent version 4, `text-embedding-3-small`, and Azure AI Search index `placement-knowledge-v1`.
 
 ## Reproducible local checks
 
@@ -13,13 +13,19 @@ pytest -q
 
 The content validator checks catalog counts, source contracts, review gates and candidate chunk construction without network or model calls. The retrieval evaluator measures hit@5 against four checked-in smoke cases. These cases guard pipeline regressions; they are too small and too simple to satisfy the proposed production-quality gate.
 
-## Release gates requiring people or Azure
+## Measured live result
+
+The versioned report at `docs/reports/live-rag-smoke.json` records one response request, two embedding requests (one document and one query), one Search request, zero automatic retries, 465 response tokens, 15,576 ms end-to-end latency, and a resolved citation to `live-smoke-primary-key`. The indexed passage is explicitly synthetic smoke data and is not represented as reviewed learning content.
+
+The offline retrieval fixture contains four cases and achieved hit@5 of 1.0. The full automated suite contains 83 tests and 23 subtests across Python 3.12/3.13 CI. Failure-path tests cover budget denial, malformed provider output, idempotent replay, unknown post-dispatch usage, tenant isolation, deletion, backup/restore, and prompt-injection boundaries.
+
+## Release gates requiring people
 
 - A named subject reviewer must review the 40 objective questions, answer keys, explanations, five interview prompts and four knowledge summaries. Update the manifest and each source only after that review.
 - Expand retrieval evaluation to at least 30 answerable cases and 20 unsupported questions. Run those cases against the configured Azure AI Search candidate index before activation.
 - Collect at least 30 independently human-scored interview/practice answers to measure rubric agreement.
 - Record supported-claim and abstention judgments by a human reviewer; citation-ID resolution alone does not prove claim support.
-- Run the bounded live Foundry suite only under the authorized development allowance. Store counts, token usage, version and failure status; do not store private student content in reports.
+- A public or research-quality release remains blocked until the larger human-scored datasets above are completed. The student-project showcase may use the measured smoke and synthetic demo profile with these limitations displayed.
 
 ## Credit and resilience evidence
 

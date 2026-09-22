@@ -2,9 +2,9 @@
 
 ## Supported release boundary
 
-The current release is a single-user demonstration application. It can run directly or in one container with SQLite on persistent storage. `compose.yaml` binds the service to `127.0.0.1`; it is not exposed to another machine. The application deliberately refuses to start when `DEPLOYMENT_ENVIRONMENT=hosted`, because server-verified user authentication has not been implemented. Do not disable this check or expose local-demo mode publicly.
+The release supports a local single-user mode and a hosted single-replica mode. Hosted startup requires `AUTH_MODE=azure_easy_auth`; the application derives an opaque student identifier from Azure's authenticated `X-MS-CLIENT-PRINCIPAL-ID` header and fails closed when the header is absent. The hosting boundary must reject unauthenticated traffic before it reaches Streamlit and must strip client-supplied identity headers.
 
-This boundary is intentional. A public or multi-user release needs Microsoft Entra ID authentication, a server-side mapping from the verified subject to `Student.auth_subject`, authorization tests at the HTTP boundary, HTTPS, and CSRF/session controls. After authentication exists, multi-instance hosting also requires PostgreSQL and object storage rather than shared-network SQLite.
+The supported hosted demo uses Microsoft Entra authentication at Azure ingress, HTTPS, one application replica, and a persistent Azure Files mount for SQLite. Multi-instance hosting requires PostgreSQL and object storage rather than shared-network SQLite.
 
 ## Local container release
 
@@ -20,9 +20,9 @@ Open `http://127.0.0.1:8501`. Docker checks `/_stcore/health` every 30 seconds. 
 
 For local live-AI validation, pass an environment file containing only non-secret settings and authenticate with a developer identity outside the image. Never copy Azure credentials into the image or repository. Production should use managed identity. The container runs as unprivileged user `10001` and excludes local databases, logs, backups, and `.env` files from its build context.
 
-## Azure readiness gate
+## Azure deployment gate
 
-The image is suitable for a private smoke test on one host. It is **not approved for public Azure Container Apps ingress** while hosted authentication is unavailable. A future deployment should use:
+The image is suitable for a private Azure Container Apps demo only after ingress authentication is enabled and anonymous requests receive 401/redirect before application code. Use:
 
 ```mermaid
 flowchart TB

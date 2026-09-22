@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "agent": "placement-preparation-agent:4",
+  "embedding_deployment": "text-embedding-3-small",
+  "search_index": "placement-knowledge-v1",
+  "corpus_version": "live-smoke-v1",
+  "response_requests": 1,
+  "embedding_requests": 2,
+  "search_requests": 1,
+  "automatic_retries": 0,
+  "actual_response_tokens": 465,
+  "elapsed_ms": 15576,
+  "citation_ids": [
+    "live-smoke-primary-key"
+  ],
+  "source_kind": "synthetic_smoke_only"
+}
