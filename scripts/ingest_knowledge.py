@@ -5,10 +5,9 @@ import json
 import os
 from pathlib import Path
 
-from placement_agent.agent.client import FoundryProvider
 from placement_agent.config import load_settings
 from placement_agent.rag.ingest import EducationalSource, ingest_candidate
-from placement_agent.rag.retrieval import create_azure_search
+from placement_agent.rag.retrieval import create_azure_search, create_embedding_client
 
 
 def main() -> None:
@@ -22,12 +21,13 @@ def main() -> None:
     if not args.authorize_embedding_spend:
         print(f"Validated {len(sources)} sources. No network calls; explicitly authorize ingestion to proceed.")
         return
-    provider = FoundryProvider(load_settings())
+    settings = load_settings()
+    embedding_client = create_embedding_client(settings.azure_openai_endpoint)
     try:
         search = create_azure_search(
             endpoint=os.environ["AZURE_SEARCH_ENDPOINT"],
             index_name=os.environ["AZURE_SEARCH_INDEX_NAME"],
-            embedding_client=provider.client,
+            embedding_client=embedding_client,
             embedding_model=os.environ["EMBEDDING_DEPLOYMENT"],
             corpus_version=args.corpus_version,
             dimensions=int(os.environ["EMBEDDING_DIMENSIONS"]),
@@ -50,7 +50,7 @@ def main() -> None:
             )
         )
     finally:
-        provider.close()
+        embedding_client.close()
 
 
 if __name__ == "__main__":

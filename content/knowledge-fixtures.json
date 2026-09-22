@@ -6,8 +6,8 @@
     "text": "Lists retain order and allow duplicate values. Sets keep distinct hashable elements and support membership and set operations. Dictionaries associate unique hashable keys with values. Choose a collection from the behavior the program requires rather than from habit.",
     "permitted_use": "Original project summary linking to official Python documentation",
     "reviewed_on": "2026-09-22",
-    "review_status": "draft",
-    "reviewer": null,
+    "review_status": "human_reviewed",
+    "reviewer": "Jiya-garg08",
     "classification": "public_educational"
   },
   {
@@ -17,8 +17,8 @@
     "text": "A primary key identifies a row in its table. A foreign key constrains values to refer to compatible rows in another table or to be null when the schema permits it. These constraints preserve identity and referential integrity; indexes are a separate performance concern.",
     "permitted_use": "Original project summary linking to official SQLite documentation",
     "reviewed_on": "2026-09-22",
-    "review_status": "draft",
-    "reviewer": null,
+    "review_status": "human_reviewed",
+    "reviewer": "Jiya-garg08",
     "classification": "public_educational"
   },
   {
@@ -28,8 +28,8 @@
     "text": "The working tree contains checked-out files. The staging area records the content selected for the next commit. A commit stores that staged snapshot in local history. Fetching, staging, committing, and pushing are distinct operations.",
     "permitted_use": "Original project summary linking to the Git project book",
     "reviewed_on": "2026-09-22",
-    "review_status": "draft",
-    "reviewer": null,
+    "review_status": "human_reviewed",
+    "reviewer": "Jiya-garg08",
     "classification": "public_educational"
   },
   {
@@ -39,8 +39,8 @@
     "text": "Breadth-first search explores an unweighted graph in layers from a start vertex. A queue preserves the frontier order. The first discovered path to a vertex has the fewest edges when every edge has equal weight.",
     "permitted_use": "Original project summary linking to Open Data Structures",
     "reviewed_on": "2026-09-22",
-    "review_status": "draft",
-    "reviewer": null,
+    "review_status": "human_reviewed",
+    "reviewer": "Jiya-garg08",
     "classification": "public_educational"
   }
 ]

@@ -1,6 +1,7 @@
 """Explicit user actions drive persistence and one-shot feedback requests."""
 
 import json
+from hashlib import sha256
 from uuid import uuid4
 
 import streamlit as st
@@ -10,7 +11,6 @@ from placement_agent.config import load_settings
 from placement_agent.integrations.document_parser import extract_document
 from placement_agent.integrations.github import snapshot_repository
 
-STUDENT = "demo-student"
 PAGES = [
     "Home",
     "Profile & Goal",
@@ -27,10 +27,21 @@ def service():
     return build_service()
 
 
-def profile_page(svc):
+def current_student_id() -> str:
+    """Derive an opaque student ID from a trusted Azure Easy Auth header."""
+    settings = load_settings()
+    if settings.auth_mode == "local_demo":
+        return "demo-student"
+    subject = st.context.headers.get("X-MS-CLIENT-PRINCIPAL-ID", "").strip()
+    if not subject:
+        raise ValueError("Authenticated Azure identity header is missing")
+    return "entra-" + sha256(subject.encode()).hexdigest()[:32]
+
+
+def profile_page(svc, student_id):
     st.header("Profile & Goal")
-    profile = svc.profile(STUDENT)
-    goal = svc.goal(STUDENT) or {}
+    profile = svc.profile(student_id)
+    goal = svc.goal(student_id) or {}
     with st.form("profile"):
         name = st.text_input("Display name", value=profile.get("display_name", "Student"))
         education = st.text_input("Education", value=profile.get("education", ""))
@@ -38,8 +49,8 @@ def profile_page(svc):
         weekly = st.number_input("Weekly study minutes", 10, 3360, int(goal.get("weekly_minutes", 225)))
         st.caption("Initial role: junior Python/backend software engineer")
         if st.form_submit_button("Save profile and goal"):
-            svc.save_profile(STUDENT, name, education, int(daily), int(weekly))
-            svc.set_goal(STUDENT, "backend", int(daily), int(weekly))
+            svc.save_profile(student_id, name, education, int(daily), int(weekly))
+            svc.set_goal(student_id, "backend", int(daily), int(weekly))
             st.success("Profile and goal saved")
     st.subheader("Resume evidence")
     upload = st.file_uploader("Text-based resume (PDF or TXT)", type=["pdf", "txt"])
@@ -54,7 +65,7 @@ def profile_page(svc):
             if not confirmed or not text.strip():
                 st.warning("Provide resume text and confirm the facts first")
             else:
-                svc.save_document(STUDENT, "resume", text, {"student_confirmed": facts})
+                svc.save_document(student_id, "resume", text, {"student_confirmed": facts})
                 st.success("Confirmed resume saved. Claims do not establish skill mastery.")
     st.subheader("Public GitHub project")
     with st.form("github"):
@@ -63,13 +74,13 @@ def profile_page(svc):
         url = st.text_input("Public repository URL", placeholder="https://github.com/owner/repository")
         if st.form_submit_button("Import bounded repository snapshot"):
             snapshot = snapshot_repository(url)
-            svc.save_project(STUDENT, title or url, description, snapshot)
+            svc.save_project(student_id, title or url, description, snapshot)
             st.success("Repository evidence saved. Repository content does not verify authorship.")
-    for project in svc.projects(STUDENT):
+    for project in svc.projects(student_id):
         with st.expander(project.get("title", "Project")):
             st.json(project)
             if st.button("Prepare reusable viva questions", key=f"viva_{project['id']}"):
-                st.session_state[f"viva_batch_{project['id']}"] = svc.prepare_project_viva(STUDENT, project["id"])
+                st.session_state[f"viva_batch_{project['id']}"] = svc.prepare_project_viva(student_id, project["id"])
             if f"viva_batch_{project['id']}" in st.session_state:
                 st.json(st.session_state[f"viva_batch_{project['id']}"])
     st.subheader("Target job description")
@@ -83,7 +94,7 @@ def profile_page(svc):
         st.json(st.session_state["jd_draft"])
         if st.button("Confirm this requirement snapshot"):
             svc.confirm_job_requirements(
-                STUDENT,
+                student_id,
                 st.session_state["jd_text"],
                 st.session_state["jd_draft"],
                 [item.strip() for item in unresolved.split(",") if item.strip()],
@@ -91,19 +102,19 @@ def profile_page(svc):
             st.success("Confirmed job requirements saved with their taxonomy version")
 
 
-def session_page(svc, kind):
+def session_page(svc, kind, student_id):
     label = {"diagnostic": "Diagnostic", "practice": "Practice", "interview": "Mock interview"}[kind]
     st.subheader(label)
     st.caption("Questions are fixed. Answers are saved individually. AI feedback is requested once after completion.")
     key = f"{kind}_session"
     if st.button(f"Start new {label.lower()}"):
-        result = svc.start_session(STUDENT, kind)
+        result = svc.start_session(student_id, kind)
         st.session_state[key] = result["id"]
     session_id = st.session_state.get(key)
     if not session_id:
         st.info("Start a session to begin. Existing answers remain in your progress history.")
         return
-    result = svc.get_session(STUDENT, session_id)
+    result = svc.get_session(student_id, session_id)
     st.write(f"Status: {result['status']} · Answered {result['answered']} of {result['total']}")
     for index, item in enumerate(result["items"], 1):
         with st.expander(f"Question {index}: {item['prompt']}", expanded=item.get("answer") is None):
@@ -122,10 +133,10 @@ def session_page(svc, kind):
                         st.warning("Enter an answer first")
                     else:
                         request_key = st.session_state.setdefault(f"request_{item['id']}", str(uuid4()))
-                        svc.submit_answer(STUDENT, item["id"], answer, request_key)
+                        svc.submit_answer(student_id, item["id"], answer, request_key)
                         st.rerun()
     if result["status"] != "completed" and st.button("Finish session"):
-        svc.finish_session(STUDENT, session_id)
+        svc.finish_session(student_id, session_id)
         st.rerun()
     if result["status"] == "completed":
         st.success("Session completed and saved")
@@ -137,7 +148,7 @@ def session_page(svc, kind):
             from placement_agent.services.ai_feedback import request_session_feedback
 
             st.session_state[f"feedback_{session_id}"] = request_session_feedback(
-                STUDENT, session_id, f"session-feedback:{session_id}"
+                student_id, session_id, f"session-feedback:{session_id}"
             )
         if f"feedback_{session_id}" in st.session_state:
             st.json(st.session_state[f"feedback_{session_id}"])
@@ -148,12 +159,16 @@ def session_page(svc, kind):
 def main():
     st.set_page_config(page_title="Placement Preparation Agent", page_icon="🎓", layout="wide")
     st.title("Placement Preparation Agent")
-    st.sidebar.warning("Local demo only · single demo student · no hosted authentication")
     try:
+        student_id = current_student_id()
+        if load_settings().auth_mode == "local_demo":
+            st.sidebar.warning("Local demo · single synthetic student")
+        else:
+            st.sidebar.success("Signed in with Microsoft Entra ID")
         svc = service()
         if not st.session_state.get("initialized"):
             if st.button("Initialize / open local demo"):
-                svc.ensure_student(STUDENT)
+                svc.ensure_student(student_id)
                 st.session_state["initialized"] = True
                 st.rerun()
             st.info("Open the local demo to use your saved preparation profile.")
@@ -162,19 +177,19 @@ def main():
         if page == "Home":
             st.header("Your preparation")
             st.write("Build evidence through diagnostics and practice, then choose your next activity.")
-            st.json(svc.goal(STUDENT) or {"next_step": "Set your profile and goal"})
-            st.dataframe(svc.skill_summary(STUDENT), use_container_width=True)
+            st.json(svc.goal(student_id) or {"next_step": "Set your profile and goal"})
+            st.dataframe(svc.skill_summary(student_id), use_container_width=True)
         elif page == "Profile & Goal":
-            profile_page(svc)
+            profile_page(svc, student_id)
         elif page == "Diagnostic":
-            session_page(svc, "diagnostic")
+            session_page(svc, "diagnostic", student_id)
         elif page == "Learning Plan":
             st.header("Seven-day learning plan")
             if st.button("Create / revise plan"):
-                svc.create_plan(STUDENT)
-            plan = svc.get_plan(STUDENT)
+                svc.create_plan(student_id)
+            plan = svc.get_plan(student_id)
             if plan:
-                next_action = svc.next_action(STUDENT)
+                next_action = svc.next_action(student_id)
                 st.json(next_action)
                 if next_action.get("action") == "complete_activity":
                     if st.button(
@@ -187,7 +202,7 @@ def main():
                             f"plan-explanation:{next_action['plan_item_id']}:"
                             f"{plan['state_version']}"
                         )
-                        st.session_state["plan_explanation"] = explain_next_action(STUDENT, key)
+                        st.session_state["plan_explanation"] = explain_next_action(student_id, key)
                     if "plan_explanation" in st.session_state:
                         st.json(st.session_state["plan_explanation"])
                     if not load_settings().live_ai_enabled:
@@ -200,7 +215,7 @@ def main():
                         key=f"complete_{item['id']}",
                         disabled=item["status"] == "completed",
                     ):
-                        svc.complete_activity(STUDENT, item["id"])
+                        svc.complete_activity(student_id, item["id"])
                         st.rerun()
             else:
                 st.info("Set a goal, complete a diagnostic, then create your plan.")
@@ -216,26 +231,26 @@ def main():
                     from placement_agent.services.ai_feedback import answer_learning
 
                     key = st.session_state.setdefault(f"learning_key_{query}", str(uuid4()))
-                    st.session_state["learning_answer"] = answer_learning(STUDENT, query, key)
+                    st.session_state["learning_answer"] = answer_learning(student_id, query, key)
             if "learning_answer" in st.session_state:
                 st.json(st.session_state["learning_answer"])
             if not load_settings().live_ai_enabled:
                 st.caption("Foundry learning feedback is disabled until live Azure configuration is verified.")
-            session_page(svc, "practice")
+            session_page(svc, "practice", student_id)
         elif page == "Interview":
-            session_page(svc, "interview")
+            session_page(svc, "interview", student_id)
         elif page == "Progress & Data":
             st.header("Progress & Data")
-            st.json(svc.progress(STUDENT))
+            st.json(svc.progress(student_id))
             st.caption("Completion is not mastery. Unknown skills have not been assessed sufficiently.")
             st.download_button(
                 "Export my data",
-                json.dumps(svc.export_student(STUDENT), indent=2, default=str),
+                json.dumps(svc.export_student(student_id), indent=2, default=str),
                 "preparation-export.json",
             )
             confirmation = st.text_input("Type DELETE to delete the local demo student's data")
             if st.button("Delete my data", disabled=confirmation != "DELETE"):
-                svc.delete_student(STUDENT)
+                svc.delete_student(student_id)
                 st.session_state.clear()
                 st.rerun()
     except (ValueError, LookupError) as exc:

@@ -80,19 +80,16 @@ def answer_learning(
         configured = (
             settings.search_endpoint,
             settings.search_index_name,
+            settings.azure_openai_endpoint,
             settings.embedding_deployment,
             settings.knowledge_corpus_version,
             settings.embedding_dimensions,
         )
         if not all(configured):
             raise ValueError("Azure knowledge retrieval is not configured")
-        from azure.ai.projects import AIProjectClient
-        from azure.identity import DefaultAzureCredential
+        from placement_agent.rag.retrieval import create_azure_search, create_embedding_client
 
-        from placement_agent.rag.retrieval import create_azure_search
-
-        project = AIProjectClient(endpoint=settings.foundry_project_endpoint, credential=DefaultAzureCredential())
-        embedding_client = project.get_openai_client(max_retries=0, timeout=60.0)
+        embedding_client = create_embedding_client(settings.azure_openai_endpoint)
         retriever = create_azure_search(
             endpoint=settings.search_endpoint,
             index_name=settings.search_index_name,
@@ -101,7 +98,7 @@ def answer_learning(
             corpus_version=settings.knowledge_corpus_version,
             dimensions=settings.embedding_dimensions,
         )
-        closeables = [retriever.search_client, embedding_client, project]
+        closeables = [retriever.search_client, embedding_client]
     try:
         passages = retriever.search(query.strip(), top=5)
     finally:

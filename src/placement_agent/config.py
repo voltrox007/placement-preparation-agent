@@ -42,6 +42,7 @@ class Settings:
     log_level: str
     search_endpoint: str = ""
     search_index_name: str = ""
+    azure_openai_endpoint: str = ""
     embedding_deployment: str = ""
     knowledge_corpus_version: str = ""
     embedding_dimensions: int | None = None
@@ -106,10 +107,12 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     if deployment_environment not in {"local", "hosted"}:
         raise ConfigurationError("DEPLOYMENT_ENVIRONMENT must be local or hosted")
     auth_mode = values.get("AUTH_MODE", "local_demo").strip()
-    if auth_mode != "local_demo":
-        raise ConfigurationError("Only AUTH_MODE=local_demo is implemented; hosting is not ready")
-    if deployment_environment == "hosted":
-        raise ConfigurationError("Hosted startup is blocked until server-verified authentication is implemented")
+    if auth_mode not in {"local_demo", "azure_easy_auth"}:
+        raise ConfigurationError("AUTH_MODE must be local_demo or azure_easy_auth")
+    if deployment_environment == "hosted" and auth_mode != "azure_easy_auth":
+        raise ConfigurationError("Hosted startup requires Azure Easy Auth")
+    if deployment_environment == "local" and auth_mode != "local_demo":
+        raise ConfigurationError("Azure Easy Auth is valid only in a hosted deployment")
     log_level = values.get("LOG_LEVEL", "INFO").strip().upper()
     if log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
         raise ConfigurationError("LOG_LEVEL is invalid")
@@ -119,12 +122,14 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         raise ConfigurationError("DATABASE_URL and PRIVATE_STORAGE_DIR must not be blank")
     search_endpoint = values.get("AZURE_SEARCH_ENDPOINT", "").strip()
     search_index_name = values.get("AZURE_SEARCH_INDEX_NAME", "").strip()
+    azure_openai_endpoint = values.get("AZURE_OPENAI_ENDPOINT", "").strip()
     embedding_deployment = values.get("EMBEDDING_DEPLOYMENT", "").strip()
     corpus_version = values.get("KNOWLEDGE_CORPUS_VERSION", "").strip()
     embedding_dimensions = _positive_int(values, "EMBEDDING_DIMENSIONS")
     search_values = (
         search_endpoint,
         search_index_name,
+        azure_openai_endpoint,
         embedding_deployment,
         corpus_version,
         embedding_dimensions,
@@ -133,6 +138,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         raise ConfigurationError("Azure retrieval configuration must be complete")
     if search_endpoint and not search_endpoint.startswith("https://"):
         raise ConfigurationError("AZURE_SEARCH_ENDPOINT must be HTTPS")
+    if azure_openai_endpoint and not azure_openai_endpoint.startswith("https://"):
+        raise ConfigurationError("AZURE_OPENAI_ENDPOINT must be HTTPS")
     return Settings(
         deployment_environment=deployment_environment,
         live_ai_enabled=enabled == "true",
@@ -151,6 +158,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         log_level=log_level,
         search_endpoint=search_endpoint,
         search_index_name=search_index_name,
+        azure_openai_endpoint=azure_openai_endpoint,
         embedding_deployment=embedding_deployment,
         knowledge_corpus_version=corpus_version,
         embedding_dimensions=embedding_dimensions,

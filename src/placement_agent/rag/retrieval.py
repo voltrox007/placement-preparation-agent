@@ -1,9 +1,28 @@
 """Bounded lexical demo retrieval and explicitly configured Azure hybrid retrieval."""
 
+import os
 import re
 from typing import Any
 
 from placement_agent.domain.contracts import RetrievedPassage
+
+
+def create_embedding_client(endpoint: str):
+    """Create a retry-free Azure OpenAI embedding client using workload identity."""
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    from openai import AzureOpenAI
+
+    if not endpoint.startswith("https://"):
+        raise ValueError("Azure OpenAI endpoint must be HTTPS")
+    credential = DefaultAzureCredential()
+    token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
+    return AzureOpenAI(
+        azure_endpoint=endpoint,
+        api_version="2024-10-21",
+        azure_ad_token_provider=token_provider,
+        max_retries=0,
+        timeout=60.0,
+    )
 
 
 class LocalKnowledgeSearch:
@@ -98,14 +117,17 @@ def create_azure_search(
     corpus_version: str,
     dimensions: int,
 ) -> AzureKnowledgeSearch:
+    from azure.core.credentials import AzureKeyCredential
     from azure.core.pipeline.policies import RetryPolicy
     from azure.identity import DefaultAzureCredential
     from azure.search.documents import SearchClient
 
+    api_key = os.environ.get("AZURE_SEARCH_API_KEY", "").strip()
+    credential = AzureKeyCredential(api_key) if api_key else DefaultAzureCredential()
     client = SearchClient(
         endpoint,
         index_name,
-        DefaultAzureCredential(),
+        credential,
         retry_policy=RetryPolicy(retry_total=0, retry_connect=0, retry_read=0, retry_status=0),
     )
     return AzureKnowledgeSearch(

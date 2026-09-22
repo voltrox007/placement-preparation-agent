@@ -81,8 +81,12 @@ class ConfigurationTests(unittest.TestCase):
                 load_settings(env)
 
     def test_hosted_environment_fails_closed_without_verified_auth(self) -> None:
-        with self.assertRaisesRegex(ConfigurationError, "server-verified authentication"):
+        with self.assertRaisesRegex(ConfigurationError, "Azure Easy Auth"):
             load_settings({"DEPLOYMENT_ENVIRONMENT": "hosted", "AUTH_MODE": "local_demo"})
+
+    def test_hosted_environment_accepts_azure_easy_auth(self) -> None:
+        settings = load_settings({"DEPLOYMENT_ENVIRONMENT": "hosted", "AUTH_MODE": "azure_easy_auth"})
+        self.assertEqual(settings.auth_mode, "azure_easy_auth")
 
     def test_invalid_deployment_environment(self) -> None:
         with self.assertRaisesRegex(ConfigurationError, "local or hosted"):

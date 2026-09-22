@@ -8,7 +8,7 @@ RAG: approved educational passages and resource descriptions. SQLite: student fa
 
 Start with approximately 20–40 reviewed sources, 15–25 skills, 40–60 reviewed assessment questions, and 10–15 activities/exercises. Use original notes or permitted material; record permitted use and link rather than copying commercial courses. These are implementation targets, not content that already exists.
 
-The checked-in `starter-v1` catalog currently contains 4 skills, 40 objective questions, 5 interview prompts and 4 resource links. Its manifest deliberately says `awaiting_human_review`. Four original knowledge summaries are also checked in as draft fixtures. The ingestion command refuses to activate any source until it has both `review_status: human_reviewed` and a named reviewer. Run `python scripts/validate_content.py`; add `--require-human-review` as a release gate after a subject reviewer signs the catalog and sources.
+The checked-in `starter-v1` catalog contains 4 skills, 40 objective questions, 5 interview prompts and 4 resource links. `Jiya-garg08` reviewed the catalog and four original knowledge summaries on 2026-09-22. The ingestion command refuses to activate any source unless it has both `review_status: human_reviewed` and a named reviewer. Run `python scripts/validate_content.py --require-human-review` as a release gate after every content change.
 
 ## Ingestion
 
