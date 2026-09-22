@@ -119,9 +119,11 @@ def test_provider_pins_agent_and_uses_no_history():
     )
     provider = FoundryProvider(settings(), project=project, client=client)
     provider.prepare()
-    provider.generate("task", {"type": "object", "properties": {}})
+    provider.generate("{}", {"type": "object", "properties": {}})
     assert captured["extra_body"]["agent_reference"]["version"] == "1"
-    assert captured["tools"] == [] and captured["tool_choice"] == "none"
+    assert "output_contract" in captured["input"]
+    assert "tools" not in captured and "tool_choice" not in captured
+    assert "instructions" not in captured and "text" not in captured
     assert captured["store"] is False
     assert "conversation" not in captured and "previous_response_id" not in captured
 
