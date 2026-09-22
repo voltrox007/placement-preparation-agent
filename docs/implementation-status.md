@@ -44,6 +44,9 @@ Review corrections: validate aggregate scores against frozen rubric dimensions/w
 
 1. GitHub CLI reports socket access denied; the session rejects sandbox escalation requests. This prevents fetching current issue state, posting comments, creating/pushing PRs, and closing issues.
 2. Required package dependencies are unavailable in the normal Python environment; the registry check could not resolve SQLAlchemy. Installation and full dependency verification are incomplete.
-3. No usable Foundry configuration/authentication was observed. The owner has been asked for project endpoint, deployment, region, and an explicit spending allowance. Never send secrets in chat or GitHub.
+3. Foundry agent `placement-preparation-agent` version 4 is verified on deployment
+   `gpt-4.1-mini` with no tools. Azure CLI authentication and one bounded live smoke
+   batch succeeded. The INR 10,000 project envelope allocates INR 1,500 to development
+   and INR 200 to the initial smoke batch. Never send secrets in chat or GitHub.
 
 No live model requests, Azure resource creation, or student-data uploads have occurred.

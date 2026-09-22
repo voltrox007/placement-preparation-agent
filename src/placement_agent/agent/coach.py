@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -29,6 +30,7 @@ from placement_agent.domain.policies import validate_citations, validate_evaluat
 from .client import INSTRUCTIONS, FoundryProvider
 
 PROMPT_VERSION = "single-shot-v1"
+LOGGER = logging.getLogger(__name__)
 OUTPUTS: dict[Action, type[BaseModel]] = {
     Action.EXTRACT: ProfileDraft,
     Action.LEARNING_ANSWER: GroundedAnswer,
@@ -231,7 +233,13 @@ class AICoach:
                 output=cast(Any, output),
                 actual_tokens=actual,
             )
-        except Exception:
+        except Exception as exc:
+            LOGGER.warning(
+                "Foundry action failed after dispatch: action=%s error_type=%s error=%s",
+                action.value,
+                type(exc).__name__,
+                str(exc)[:1000],
+            )
             result = AgentTaskResult(
                 action=action,
                 request_key=request_key,

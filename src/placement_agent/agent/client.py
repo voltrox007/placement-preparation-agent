@@ -1,5 +1,6 @@
 """Thin Foundry adapter. No continuation, conversation, tool loop, or SDK retries."""
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -62,22 +63,24 @@ class FoundryProvider:
         }
 
     def generate(self, prompt: str, schema: dict[str, Any]) -> ProviderReply:
+        request_input = json.dumps(
+            {
+                "task": json.loads(prompt),
+                "output_contract": schema,
+                "response_rules": [
+                    "Return exactly one JSON object matching output_contract.",
+                    "Do not include markdown fences or additional properties.",
+                ],
+            },
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
         response = self.client.responses.create(
-            input=prompt,
-            instructions=INSTRUCTIONS,
-            tools=[],
-            tool_choice="none",
+            input=request_input,
             store=False,
             background=False,
             max_output_tokens=self.settings.max_output_tokens,
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "task_result",
-                    "strict": True,
-                    "schema": schema,
-                }
-            },
             extra_body={
                 "agent_reference": {
                     "name": self.settings.foundry_agent_name,

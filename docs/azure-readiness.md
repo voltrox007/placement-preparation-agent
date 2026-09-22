@@ -28,7 +28,12 @@ Use the current Foundry **2.x** Python API generation. Microsoft documents `azur
 
 The intended packages are `azure-ai-projects`, `azure-identity`, the compatible `openai` dependency, and later `azure-search-documents`. No agent framework or MCP dependency is required. Use `AIProjectClient`, `project.agents.create_version(...)` with `PromptAgentDefinition`, and the project-derived OpenAI Responses client. Invocation must carry `agent_reference` with the configured agent name **and version**; do not quietly substitute a direct model-only call. [Prompt-agent creation](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/use-your-data-quickstart?tabs=python-new), [runtime components](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/runtime-components)
 
-The Foundry schema exposes JSON-schema text output configuration. Select a deployed model that supports it; validate the response again with the application's typed contract. Refusal, incomplete output, malformed JSON, unexpected IDs, or missing interview items produce an invalid/pending result, never an automatic repair call. Confirm request-level schema override behavior against the pinned SDK during P05 before relying on different schemas for the same registered agent. [REST schema reference](https://learn.microsoft.com/en-us/rest/api/microsoft-foundry/aiproject)
+The live verification established that a Responses request referencing a persistent
+agent rejects request-level `instructions` and `text` response-format overrides. The
+adapter therefore embeds the action-specific JSON Schema in the single input payload
+and validates the returned JSON again with the application's strict Pydantic contract.
+Refusal, incomplete output, malformed JSON, unexpected IDs, or missing interview items
+produce an invalid/pending result and never an automatic repair call.
 
 ## One-request provider contract
 
@@ -71,4 +76,16 @@ with zero tools. Agent creation and verification did not invoke the model.
 
 The owner authorized a total project credit envelope of INR 10,000, with INR 1,500
 allocated to development and integration testing and INR 200 allocated to the initial
-live smoke test. Live inference remains disabled until all offline gates pass.
+live smoke test. The offline gates passed before the smoke request was enabled.
+
+## Live smoke result
+
+The bounded smoke batch made three outbound response requests. The first two were
+HTTP 400 payload rejections and retained conservative unknown-usage reservations;
+neither was retried automatically. The diagnostic identified that persistent-agent
+requests cannot accept request-level instructions or text-format overrides. After the
+adapter was corrected, the third request succeeded using agent version 4, returned a
+grounded answer with the supplied citation ID, and reported 447 total tokens. The
+application also denied an attempted request before provider access when the synthetic
+student allowance was exhausted. No tools, conversation, continuation, or model retry
+was used. Cost Management remains the source of truth for billed currency and can lag.
